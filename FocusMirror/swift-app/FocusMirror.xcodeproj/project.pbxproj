@@ -1,0 +1,285 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		8A0000010000000000000001 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000101 /* App.swift */; };
+		8A0000010000000000000002 /* DetectionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000102 /* DetectionState.swift */; };
+		8A0000010000000000000003 /* SessionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000103 /* SessionModels.swift */; };
+		8A0000010000000000000004 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000104 /* AppModel.swift */; };
+		8A0000010000000000000005 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000105 /* SessionStore.swift */; };
+		8A0000010000000000000006 /* CameraPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000106 /* CameraPermission.swift */; };
+		8A0000010000000000000007 /* PythonEngineProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000107 /* PythonEngineProcess.swift */; };
+		8A0000010000000000000008 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000108 /* ContentView.swift */; };
+		8A0000010000000000000009 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000109 /* OnboardingView.swift */; };
+		8A000001000000000000000A /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A000001000000000000010A /* HomeView.swift */; };
+		8A000001000000000000000B /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A000001000000000000010B /* HistoryView.swift */; };
+		8A000001000000000000000C /* ActiveSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A000001000000000000010C /* ActiveSessionView.swift */; };
+		8A000001000000000000000D /* SessionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A000001000000000000010D /* SessionSummaryView.swift */; };
+		8A000001000000000000000E /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A000001000000000000010E /* Formatters.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		8A0000010000000000000101 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		8A0000010000000000000102 /* DetectionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionState.swift; sourceTree = "<group>"; };
+		8A0000010000000000000103 /* SessionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionModels.swift; sourceTree = "<group>"; };
+		8A0000010000000000000104 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		8A0000010000000000000105 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		8A0000010000000000000106 /* CameraPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPermission.swift; sourceTree = "<group>"; };
+		8A0000010000000000000107 /* PythonEngineProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PythonEngineProcess.swift; sourceTree = "<group>"; };
+		8A0000010000000000000108 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		8A0000010000000000000109 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		8A000001000000000000010A /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		8A000001000000000000010B /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		8A000001000000000000010C /* ActiveSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSessionView.swift; sourceTree = "<group>"; };
+		8A000001000000000000010D /* SessionSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSummaryView.swift; sourceTree = "<group>"; };
+		8A000001000000000000010E /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
+		8A000001000000000000010F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		8A0000010000000000000110 /* FocusMirror.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FocusMirror.entitlements; sourceTree = "<group>"; };
+		8A0000010000000000000111 /* FocusMirror.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FocusMirror.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		8A0000010000000000000201 = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000202 /* FocusMirror */,
+				8A0000010000000000000206 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8A0000010000000000000202 /* FocusMirror */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000101 /* App.swift */,
+				8A0000010000000000000203 /* Models */,
+				8A0000010000000000000204 /* Services */,
+				8A0000010000000000000205 /* Views */,
+				8A000001000000000000010F /* Info.plist */,
+				8A0000010000000000000110 /* FocusMirror.entitlements */,
+			);
+			path = FocusMirror;
+			sourceTree = "<group>";
+		};
+		8A0000010000000000000203 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000102 /* DetectionState.swift */,
+				8A0000010000000000000103 /* SessionModels.swift */,
+				8A0000010000000000000104 /* AppModel.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		8A0000010000000000000204 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000105 /* SessionStore.swift */,
+				8A0000010000000000000106 /* CameraPermission.swift */,
+				8A0000010000000000000107 /* PythonEngineProcess.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		8A0000010000000000000205 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000108 /* ContentView.swift */,
+				8A0000010000000000000109 /* OnboardingView.swift */,
+				8A000001000000000000010A /* HomeView.swift */,
+				8A000001000000000000010B /* HistoryView.swift */,
+				8A000001000000000000010C /* ActiveSessionView.swift */,
+				8A000001000000000000010D /* SessionSummaryView.swift */,
+				8A000001000000000000010E /* Formatters.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		8A0000010000000000000206 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000111 /* FocusMirror.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8A0000010000000000000301 /* FocusMirror */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8A0000010000000000000602 /* Build configuration list for PBXNativeTarget "FocusMirror" */;
+			buildPhases = (
+				8A0000010000000000000401 /* Sources */,
+				8A0000010000000000000402 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FocusMirror;
+			productName = FocusMirror;
+			productReference = 8A0000010000000000000111 /* FocusMirror.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8A0000010000000000000501 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					8A0000010000000000000301 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
+				};
+			};
+			buildConfigurationList = 8A0000010000000000000601 /* Build configuration list for PBXProject "FocusMirror" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 8A0000010000000000000201;
+			productRefGroup = 8A0000010000000000000206 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8A0000010000000000000301 /* FocusMirror */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8A0000010000000000000402 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8A0000010000000000000401 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8A0000010000000000000001 /* App.swift in Sources */,
+				8A0000010000000000000002 /* DetectionState.swift in Sources */,
+				8A0000010000000000000003 /* SessionModels.swift in Sources */,
+				8A0000010000000000000004 /* AppModel.swift in Sources */,
+				8A0000010000000000000005 /* SessionStore.swift in Sources */,
+				8A0000010000000000000006 /* CameraPermission.swift in Sources */,
+				8A0000010000000000000007 /* PythonEngineProcess.swift in Sources */,
+				8A0000010000000000000008 /* ContentView.swift in Sources */,
+				8A0000010000000000000009 /* OnboardingView.swift in Sources */,
+				8A000001000000000000000A /* HomeView.swift in Sources */,
+				8A000001000000000000000B /* HistoryView.swift in Sources */,
+				8A000001000000000000000C /* ActiveSessionView.swift in Sources */,
+				8A000001000000000000000D /* SessionSummaryView.swift in Sources */,
+				8A000001000000000000000E /* Formatters.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		8A0000010000000000000701 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEVELOPMENT_LANGUAGE = en;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		8A0000010000000000000702 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEVELOPMENT_LANGUAGE = en;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		8A0000010000000000000703 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FocusMirror/FocusMirror.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_LANGUAGE = en;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FocusMirror/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.focusmirror.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		8A0000010000000000000704 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FocusMirror/FocusMirror.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_LANGUAGE = en;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FocusMirror/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.focusmirror.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		8A0000010000000000000601 /* Build configuration list for PBXProject "FocusMirror" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A0000010000000000000701 /* Debug */,
+				8A0000010000000000000702 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8A0000010000000000000602 /* Build configuration list for PBXNativeTarget "FocusMirror" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A0000010000000000000703 /* Debug */,
+				8A0000010000000000000704 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 8A0000010000000000000501 /* Project object */;
+}

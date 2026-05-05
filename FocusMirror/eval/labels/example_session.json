@@ -1,0 +1,10 @@
+{
+  "video": "session_001.mp4",
+  "duration_seconds": 600,
+  "segments": [
+    { "start": 0, "end": 240, "label": "focused" },
+    { "start": 240, "end": 330, "label": "looking_down", "note": "phone use" },
+    { "start": 330, "end": 420, "label": "away" },
+    { "start": 420, "end": 600, "label": "focused" }
+  ]
+}

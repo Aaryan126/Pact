@@ -1,0 +1,10 @@
+.DS_Store
+swift-app/.build/
+python-engine/.venv*/
+python-engine/models/*.task
+!python-engine/models/.gitkeep
+python-engine/.pytest_cache/
+python-engine/**/__pycache__/
+build/FocusMirror.app/
+eval/recordings/*
+!eval/recordings/.gitkeep
