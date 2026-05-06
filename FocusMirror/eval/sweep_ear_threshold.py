@@ -24,7 +24,7 @@ DEFAULT_CLIPS = [
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Sweep EAR closed threshold over selected eval clips")
-    parser.add_argument("--thresholds", default="0.06,0.08,0.10,0.12")
+    parser.add_argument("--thresholds", default="0.08,0.10,0.12,0.14")
     parser.add_argument("--clips", default=",".join(DEFAULT_CLIPS))
     parser.add_argument("--fps", type=int, default=5)
     parser.add_argument("--window-seconds", type=float, default=3.0)

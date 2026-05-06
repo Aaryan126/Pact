@@ -30,10 +30,12 @@ class ClassifierConfig:
     screen_orientation_window_seconds: float = 2.0
     screen_orientation_ratio: float = 0.6
     talking_yaw_degrees: float = 30.0
+    talking_social_context_ratio: float = 0.25
     mouth_variance_window_seconds: float = 3.0
     mouth_variance_threshold: float = 0.005
     eyes_closed_seconds: float = 3.0
-    ear_closed_threshold: float = 0.08
+    ear_closed_threshold: float = 0.12
+    ear_open_threshold: float = 0.08
     minimum_confidence: float = 0.5
 
 
@@ -85,7 +87,7 @@ class FrameClassifier:
             return FrameClassification(EYES_CLOSED, 0.82, "ear_closed_sustained")
 
         screen_oriented = _is_oriented_to_screen(signals, config) or self._is_recently_oriented_to_screen(signals.timestamp)
-        if screen_oriented and signals.ear is not None and signals.ear > config.ear_closed_threshold:
+        if screen_oriented and signals.ear is not None and signals.ear > config.ear_open_threshold:
             return FrameClassification(FOCUSED, 0.8, "screen_oriented_eyes_open")
 
         return FrameClassification(UNCERTAIN, 0.55, "ambiguous_pose_or_eye_state")
@@ -143,10 +145,12 @@ class FrameClassifier:
         if len(mar_values) < 3:
             return False
         mouth_moving = variance(mar_values) > config.mouth_variance_threshold
-        social_context = any(
-            s.face_count > 1 or (s.yaw is not None and abs(s.yaw) > config.talking_yaw_degrees)
+        social_context_frames = [
+            s
             for s in recent
-        )
+            if s.face_count > 1 or (s.yaw is not None and abs(s.yaw) > config.talking_yaw_degrees)
+        ]
+        social_context = len(social_context_frames) / len(recent) >= config.talking_social_context_ratio
         return mouth_moving and social_context
 
     def _is_recently_oriented_to_screen(self, now: float) -> bool:

@@ -1,0 +1,34 @@
+{
+  "video": "mouth_false_positive_02.mov",
+  "duration_seconds": 60,
+  "segments": [
+    {
+      "start": 0,
+      "end": 15,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Normal focused work."
+    },
+    {
+      "start": 15,
+      "end": 30,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Silent chewing or mouth movement while screen-facing; false-positive test."
+    },
+    {
+      "start": 30,
+      "end": 45,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Drink, yawn, or lip movement while screen-facing; false-positive test."
+    },
+    {
+      "start": 45,
+      "end": 60,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Normal focused work."
+    }
+  ]
+}

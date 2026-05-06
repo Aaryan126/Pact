@@ -1,0 +1,27 @@
+{
+  "video": "looking_down_reading_02.mov",
+  "duration_seconds": 60,
+  "segments": [
+    {
+      "start": 0,
+      "end": 10,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Focused, looking at screen."
+    },
+    {
+      "start": 10,
+      "end": 50,
+      "visual_state": "looking_down",
+      "actual_focus": true,
+      "note": "Looking down reading or writing; actually focused."
+    },
+    {
+      "start": 50,
+      "end": 60,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Focused, looking at screen."
+    }
+  ]
+}

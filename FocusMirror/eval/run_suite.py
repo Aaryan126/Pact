@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--face-model", default=None)
     parser.add_argument("--looking-down-pitch", type=float, default=-15.0)
     parser.add_argument("--looking-down-seconds", type=float, default=3.0)
-    parser.add_argument("--ear-closed-threshold", type=float, default=0.08)
+    parser.add_argument("--ear-closed-threshold", type=float, default=0.12)
     return parser
 
 

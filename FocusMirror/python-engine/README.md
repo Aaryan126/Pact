@@ -24,7 +24,7 @@ Press `q` or `Esc` in the preview window to stop.
 To tune eye-closed sensitivity:
 
 ```sh
-PYTHONPATH=. python -m focusmirror_engine.main --source webcam --fps 5 --preview --no-json --ear-closed-threshold 0.10
+PYTHONPATH=. python -m focusmirror_engine.main --source webcam --fps 5 --preview --no-json --ear-closed-threshold 0.12
 ```
 
 On this Mac, the default `python3` is Python 3.13 with a tasks-only MediaPipe package. For iterative CV work, prefer the Python 3.9 venv above because `mediapipe==0.10.14` still exposes the legacy `mp.solutions.face_mesh` API.

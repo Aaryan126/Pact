@@ -1,0 +1,62 @@
+{
+  "video": "mixed_session_02.mov",
+  "duration_seconds": 181,
+  "segments": [
+    {
+      "start": 0,
+      "end": 30,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Focused, looking at screen."
+    },
+    {
+      "start": 30,
+      "end": 55,
+      "visual_state": "looking_down",
+      "actual_focus": false,
+      "note": "Looking down at phone or lap, not focused."
+    },
+    {
+      "start": 55,
+      "end": 70,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Focused, looking at screen."
+    },
+    {
+      "start": 70,
+      "end": 95,
+      "visual_state": "away",
+      "actual_focus": false,
+      "note": "Away from screen or out of frame."
+    },
+    {
+      "start": 95,
+      "end": 115,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Focused, looking at screen."
+    },
+    {
+      "start": 115,
+      "end": 140,
+      "visual_state": "eyes_closed",
+      "actual_focus": false,
+      "note": "Eyes closed."
+    },
+    {
+      "start": 140,
+      "end": 165,
+      "visual_state": "talking",
+      "actual_focus": false,
+      "note": "Talking while turned away from screen."
+    },
+    {
+      "start": 165,
+      "end": 181,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Focused, looking at screen."
+    }
+  ]
+}

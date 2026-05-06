@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--face-model", default=None, help="Path to MediaPipe Tasks face_landmarker.task model")
     parser.add_argument("--looking-down-pitch", type=float, default=-15.0, help="Pitch threshold for sustained head-down detection")
     parser.add_argument("--looking-down-seconds", type=float, default=3.0, help="Seconds required for head-down detection")
-    parser.add_argument("--ear-closed-threshold", type=float, default=0.08, help="EAR threshold below which eyes count as closed")
+    parser.add_argument("--ear-closed-threshold", type=float, default=0.12, help="EAR threshold below which eyes count as closed")
     parser.add_argument("--preview", action="store_true", help="Show live camera/video overlay for CV debugging")
     parser.add_argument("--no-json", action="store_true", help="Suppress JSON classification output")
     parser.add_argument("--no-mirror-preview", action="store_true", help="Do not mirror the preview window")

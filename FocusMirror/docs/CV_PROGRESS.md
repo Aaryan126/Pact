@@ -4,13 +4,13 @@ Last updated: 2026-05-06
 
 ## Current Validation Status
 
-Manually tested with the live webcam preview:
+Manually tested with the live webcam preview and 13 labeled local clips:
 
 | State | Status | Notes |
 |---|---|---|
-| `focused` | Working in initial manual testing | Face present, screen-facing, eyes open. |
-| `away` | Working in initial manual testing | Triggers when face is absent for the sustained no-face window. |
-| `eyes_closed` | Working in initial manual testing | Detects sustained closed eyes using EAR. |
+| `focused` | Working | `focused_low_angle_01` passed with F1 `1.000`; `focused_screen_01` still has some pose-related uncertainty. |
+| `away` | Working | Triggers when face is absent for the sustained no-face window; mixed clips are reasonable but still transition-lagged. |
+| `eyes_closed` | Improved | Split open/closed EAR thresholds improved `mixed_session_02` eyes-closed F1 to `0.766`. |
 | `looking_down` | Working, but semantically ambiguous | Uses head-pose pitch, not eye gaze. Threshold is `pitch <= -15`; sustained window is `3s`. |
 | `talking` | Partially working | Detects sustained mouth movement with recent turned-away social context; does not detect mouth-only screen-facing movement. |
 | `uncertain` | Observed during warm-up/ambiguous frames | Expected during startup and low-confidence transitions. |
@@ -47,10 +47,10 @@ PYTHONPATH=. python -m focusmirror_engine.main --source webcam --fps 5 --preview
 
 ## Next Manual Tests
 
-1. Review the generated prediction CSVs and tighten label boundaries.
-2. Add more focused-screen clips under varied lighting and camera positions.
-3. Decide whether `talking_screen` remains an accepted v1 limitation.
-4. Add correction-aware product-summary eval after the raw visual detector eval.
+1. Record another reading/writing clip with a clearly lower book/notebook position; `looking_down_reading_02` was visually closer to screen-facing than expected.
+2. Add another eyes-closed clip to confirm the split EAR thresholds generalize.
+3. Add one more mouth false-positive clip with head turns while chewing/drinking.
+4. Keep `talking_screen` as an accepted v1 limitation unless the product definition changes.
 
 ## Important Product Note
 

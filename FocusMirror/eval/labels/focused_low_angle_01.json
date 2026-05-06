@@ -1,0 +1,13 @@
+{
+  "video": "focused_low_angle_01.mov",
+  "duration_seconds": 60,
+  "segments": [
+    {
+      "start": 0,
+      "end": 60,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Focused screen-facing work with camera slightly lower than normal."
+    }
+  ]
+}

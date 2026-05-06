@@ -27,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seconds", default="3,4,5")
     parser.add_argument("--clips", default=",".join(DEFAULT_CLIPS))
     parser.add_argument("--fps", type=int, default=5)
-    parser.add_argument("--ear-closed-threshold", type=float, default=0.08)
+    parser.add_argument("--ear-closed-threshold", type=float, default=0.12)
     parser.add_argument("--window-seconds", type=float, default=3.0)
     parser.add_argument("--transition-windows", type=int, default=1)
     return parser

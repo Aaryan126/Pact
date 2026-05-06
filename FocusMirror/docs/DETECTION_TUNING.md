@@ -81,7 +81,8 @@ Definition: face present, oriented toward screen, but eyes closed for sustained 
 
 | Parameter | Default | Notes |
 |---|---|---|
-| EAR threshold | 0.08 | Below this counts as closed; tuned on the first local clips to avoid false eyes-closed during normal focused work |
+| EAR closed threshold | 0.12 | Below this counts as closed for sustained eyes-closed detection |
+| EAR open threshold | 0.08 | Above this is open enough for `focused`; separated from closed threshold to avoid excessive `uncertain` |
 | Sustained duration | 3 seconds | Allow normal blinks (~0.3s) and prolonged blinks |
 
 Note: this overlaps with `looking_down` if the user's head is down and eyes are closed (sleeping). State machine priority: `looking_down` wins if pitch is < -15°, otherwise `eyes_closed`.
