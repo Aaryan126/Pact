@@ -22,7 +22,7 @@ struct HistoryView: View {
                             Text(session.startTime.formatted(date: .abbreviated, time: .shortened))
                                 .foregroundStyle(.primary)
                             HStack {
-                                Text("\(Int(session.focusedRatio * 100))% focused")
+                                Text("\(Int((session.screenFocusedRatio * 100).rounded()))% screen focus")
                                 Spacer()
                                 Text(formatMinutes(session.duration))
                             }

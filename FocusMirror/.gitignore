@@ -2,6 +2,8 @@
 build/*
 !build/bundle.sh
 swift-app/.build/
+swift-app/*.xcodeproj/project.xcworkspace/xcuserdata/
+swift-app/*.xcodeproj/xcuserdata/
 python-engine/.venv*/
 python-engine/models/*.task
 !python-engine/models/.gitkeep

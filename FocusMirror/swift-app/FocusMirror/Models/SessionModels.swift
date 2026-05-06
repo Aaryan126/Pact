@@ -34,12 +34,22 @@ struct StateSegment: Codable, Identifiable, Equatable {
         case .none: state
         }
     }
+
+    var countsAsConfirmedWork: Bool {
+        state.countsAsFocused || userCorrection == .actuallyFocused
+    }
 }
 
 enum SegmentCorrection: String, Codable, CaseIterable, Identifiable {
     case actuallyFocused = "actually_focused"
 
     var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .actuallyFocused: "Actually focused work"
+        }
+    }
 }
 
 struct FocusSession: Codable, Identifiable, Equatable {
@@ -67,15 +77,51 @@ struct FocusSession: Codable, Identifiable, Equatable {
         max(endTime.timeIntervalSince(startTime), segments.map(\.endSeconds).max() ?? 0)
     }
 
-    var focusedSeconds: TimeInterval {
+    var screenFocusedSeconds: TimeInterval {
         segments.reduce(0) { total, segment in
-            total + (segment.effectiveState.countsAsFocused ? segment.duration : 0)
+            total + (segment.state.countsAsFocused ? segment.duration : 0)
         }
     }
 
-    var focusedRatio: Double {
+    var confirmedWorkSeconds: TimeInterval {
+        segments.reduce(0) { total, segment in
+            total + (segment.countsAsConfirmedWork ? segment.duration : 0)
+        }
+    }
+
+    var correctedSeconds: TimeInterval {
+        segments.reduce(0) { total, segment in
+            total + (segment.userCorrection == .actuallyFocused ? segment.duration : 0)
+        }
+    }
+
+    var reviewSeconds: TimeInterval {
+        segments.reduce(0) { total, segment in
+            switch segment.state {
+            case .lookingDown, .uncertain:
+                total + segment.duration
+            case .focused, .away, .talking, .eyesClosed:
+                total
+            }
+        }
+    }
+
+    var screenFocusedRatio: Double {
         guard duration > 0 else { return 0 }
-        return focusedSeconds / duration
+        return screenFocusedSeconds / duration
+    }
+
+    var confirmedWorkRatio: Double {
+        guard duration > 0 else { return 0 }
+        return confirmedWorkSeconds / duration
+    }
+
+    var focusedSeconds: TimeInterval {
+        confirmedWorkSeconds
+    }
+
+    var focusedRatio: Double {
+        confirmedWorkRatio
     }
 
     func breakdown() -> [DetectionState: (count: Int, seconds: TimeInterval)] {
@@ -84,9 +130,8 @@ struct FocusSession: Codable, Identifiable, Equatable {
             result[state] = (0, 0)
         }
         for segment in segments {
-            let state = segment.effectiveState
-            let current = result[state] ?? (0, 0)
-            result[state] = (current.count + 1, current.seconds + segment.duration)
+            let current = result[segment.state] ?? (0, 0)
+            result[segment.state] = (current.count + 1, current.seconds + segment.duration)
         }
         return result
     }

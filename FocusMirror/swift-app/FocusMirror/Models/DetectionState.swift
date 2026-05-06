@@ -12,9 +12,9 @@ enum DetectionState: String, Codable, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .focused: "Focused"
+        case .focused: "Screen focused"
         case .away: "Away"
-        case .lookingDown: "Looking down"
+        case .lookingDown: "Head down"
         case .talking: "Talking"
         case .eyesClosed: "Eyes closed"
         case .uncertain: "Uncertain"

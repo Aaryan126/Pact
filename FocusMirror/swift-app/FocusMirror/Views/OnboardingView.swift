@@ -10,7 +10,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("FocusMirror")
                     .font(.system(size: 44, weight: .semibold))
-                Text("An honest mirror of focused work time.")
+                Text("An honest mirror of screen focus and confirmed work time.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }

@@ -13,7 +13,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Start session")
                         .font(.largeTitle.weight(.semibold))
-                    Text("FocusMirror observes silently and summarizes what happened after you end the session.")
+                    Text("FocusMirror observes silently and summarizes screen focus after you end the session.")
                         .foregroundStyle(.secondary)
                 }
 

@@ -20,12 +20,12 @@ final class PythonEngineProcess {
         guard let engineRoot = Self.findEngineRoot() else {
             throw EngineProcessError.engineNotFound
         }
+        let pythonExecutable = Self.findPythonExecutable(engineRoot: engineRoot)
 
         let process = Process()
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
 
-        let pythonExecutable = Self.findBundledPython() ?? URL(fileURLWithPath: "/usr/bin/env")
         process.executableURL = pythonExecutable
         process.arguments = [
             pythonExecutable.lastPathComponent == "env" ? "python3" : nil,
@@ -40,6 +40,7 @@ final class PythonEngineProcess {
         var environment = ProcessInfo.processInfo.environment
         environment["PYTHONPATH"] = engineRoot.path
         environment["PYTHONUNBUFFERED"] = "1"
+        environment["MPLCONFIGDIR"] = NSTemporaryDirectory()
         process.environment = environment
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
@@ -55,7 +56,7 @@ final class PythonEngineProcess {
             let data = handle.availableData
             guard !data.isEmpty, let message = String(data: data, encoding: .utf8) else { return }
             Task { @MainActor in
-                self?.onError?(message.trimmingCharacters(in: .whitespacesAndNewlines))
+                self?.consumeStderr(message)
             }
         }
         process.terminationHandler = { [weak self] _ in
@@ -101,17 +102,87 @@ final class PythonEngineProcess {
         }
     }
 
+    private func consumeStderr(_ message: String) {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !Self.isBenignEngineStderr(trimmed) else { return }
+        onError?(trimmed)
+    }
+
+    private static func isBenignEngineStderr(_ message: String) -> Bool {
+        let benignFragments = [
+            "SymbolDatabase.GetPrototype() is deprecated",
+            "Feedback manager requires a model with a single signature inference",
+            "Created TensorFlow Lite XNNPACK delegate for CPU",
+            "All log messages before absl::InitializeLog() is called",
+            "GL version:"
+        ]
+        return benignFragments.contains { message.contains($0) }
+    }
+
     private static func findEngineRoot() -> URL? {
         let fileManager = FileManager.default
-        let candidates = [
-            Bundle.main.resourceURL?.appendingPathComponent("python-engine"),
-            URL(fileURLWithPath: fileManager.currentDirectoryPath).deletingLastPathComponent().appendingPathComponent("python-engine"),
-            URL(fileURLWithPath: fileManager.currentDirectoryPath).appendingPathComponent("../python-engine").standardized
+
+        let sourceFileURL = URL(fileURLWithPath: #filePath)
+        let sourceRepoRoot = sourceFileURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+
+        let explicitRoot = ProcessInfo.processInfo.environment["FOCUSMIRROR_ENGINE_ROOT"]
+            .map { URL(fileURLWithPath: $0).standardized }
+
+        let anchors = [
+            URL(fileURLWithPath: fileManager.currentDirectoryPath),
+            Bundle.main.bundleURL,
+            Bundle.main.resourceURL,
+            sourceRepoRoot
         ].compactMap { $0 }
 
-        return candidates.first { url in
-            fileManager.fileExists(atPath: url.appendingPathComponent("focusmirror_engine/main.py").path)
+        var candidates = [
+            explicitRoot,
+            Bundle.main.resourceURL?.appendingPathComponent("python-engine"),
+        ].compactMap { $0 }
+
+        for anchor in anchors {
+            candidates.append(contentsOf: engineRootCandidates(from: anchor))
         }
+
+        return candidates.first { isEngineRoot($0) }
+    }
+
+    private static func engineRootCandidates(from anchor: URL) -> [URL] {
+        var candidates: [URL] = []
+        var current = anchor.standardized
+        for _ in 0..<8 {
+            candidates.append(current.appendingPathComponent("python-engine").standardized)
+            if current.lastPathComponent == "python-engine" {
+                candidates.append(current)
+            }
+            let parent = current.deletingLastPathComponent()
+            guard parent.path != current.path else { break }
+            current = parent
+        }
+        return candidates
+    }
+
+    private static func isEngineRoot(_ url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.appendingPathComponent("focusmirror_engine/main.py").path)
+    }
+
+    private static func findPythonExecutable(engineRoot: URL) -> URL {
+        if let bundledPython = findBundledPython() {
+            return bundledPython
+        }
+
+        let candidates = [
+            engineRoot.appendingPathComponent(".venv39/bin/python"),
+            engineRoot.appendingPathComponent(".venv/bin/python"),
+            engineRoot.appendingPathComponent("venv/bin/python")
+        ]
+
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
+            ?? URL(fileURLWithPath: "/usr/bin/env")
     }
 
     private static func findBundledPython() -> URL? {

@@ -14,6 +14,7 @@ struct SessionSummaryView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {
                         headline(for: session)
+                        SummaryMetrics(session: session)
                         TimelineBar(session: session)
                             .frame(height: 42)
                         BreakdownView(session: session)
@@ -31,11 +32,63 @@ struct SessionSummaryView: View {
 
     private func headline(for session: FocusSession) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("You worked \(formatMinutes(session.focusedSeconds)) out of \(formatMinutes(session.duration)).")
+            Text("Focused on screen for \(formatMinutes(session.screenFocusedSeconds)) out of \(formatMinutes(session.duration)).")
                 .font(.system(size: 36, weight: .semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Confirmed work: \(formatMinutes(session.confirmedWorkSeconds))")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(.secondary)
             Text(session.startTime.formatted(date: .complete, time: .shortened))
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+private struct SummaryMetrics: View {
+    let session: FocusSession
+
+    var body: some View {
+        HStack(spacing: 12) {
+            MetricTile(
+                title: "Screen focus",
+                value: formatMinutes(session.screenFocusedSeconds),
+                detail: "\(Int((session.screenFocusedRatio * 100).rounded()))% of session"
+            )
+            MetricTile(
+                title: "Confirmed work",
+                value: formatMinutes(session.confirmedWorkSeconds),
+                detail: session.correctedSeconds > 0 ? "+\(formatMinutes(session.correctedSeconds)) corrected" : "No corrections"
+            )
+            MetricTile(
+                title: "Reviewable",
+                value: formatMinutes(session.reviewSeconds),
+                detail: "Head down or uncertain"
+            )
+        }
+    }
+}
+
+private struct MetricTile: View {
+    let title: String
+    let value: String
+    let detail: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            Text(value)
+                .font(.title2.weight(.semibold))
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -47,9 +100,16 @@ private struct TimelineBar: View {
             HStack(spacing: 1) {
                 ForEach(session.segments) { segment in
                     Rectangle()
-                        .fill(segment.effectiveState.color)
+                        .fill(segment.state.color)
                         .frame(width: max(2, geometry.size.width * segment.duration / max(session.duration, 1)))
-                        .help("\(segment.effectiveState.label), \(formatMinutes(segment.duration))")
+                        .overlay(alignment: .bottom) {
+                            if segment.userCorrection == .actuallyFocused {
+                                Rectangle()
+                                    .fill(DetectionState.focused.color)
+                                    .frame(height: 5)
+                            }
+                        }
+                        .help(timelineHelp(for: segment))
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -60,6 +120,14 @@ private struct TimelineBar: View {
         }
         .accessibilityLabel("Session timeline")
     }
+
+    private func timelineHelp(for segment: StateSegment) -> String {
+        var parts = [segment.state.label, formatMinutes(segment.duration)]
+        if let correction = segment.userCorrection {
+            parts.append(correction.label)
+        }
+        return parts.joined(separator: ", ")
+    }
 }
 
 private struct BreakdownView: View {
@@ -69,6 +137,9 @@ private struct BreakdownView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Breakdown")
                 .font(.title2.weight(.semibold))
+            Text("Observed states before corrections.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
                 ForEach(DetectionState.allCases) { state in
                     let value = session.breakdown()[state] ?? (0, 0)
@@ -96,8 +167,13 @@ private struct CorrectionList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Segments")
-                .font(.title2.weight(.semibold))
+            HStack(alignment: .firstTextBaseline) {
+                Text("Segments")
+                    .font(.title2.weight(.semibold))
+                Spacer()
+                Text("\(formatMinutes(session.correctedSeconds)) corrected")
+                    .foregroundStyle(.secondary)
+            }
             VStack(spacing: 0) {
                 ForEach(session.segments) { segment in
                     HStack(spacing: 16) {
@@ -107,6 +183,11 @@ private struct CorrectionList: View {
                             Text("\(segment.state.label), confidence \(Int(segment.confidence * 100))%")
                                 .foregroundStyle(.secondary)
                                 .font(.caption)
+                            if let correction = segment.userCorrection {
+                                Text(correction.label)
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(DetectionState.focused.color)
+                            }
                         }
                         Spacer()
                         if segment.userCorrection == .actuallyFocused {
@@ -114,7 +195,7 @@ private struct CorrectionList: View {
                                 model.update(segmentID: segment.id, in: session.id, correction: nil)
                             }
                         } else {
-                            Button("Mark actually focused") {
+                            Button("Mark as focused work") {
                                 model.update(segmentID: segment.id, in: session.id, correction: .actuallyFocused)
                             }
                             .disabled(segment.state == .focused)
