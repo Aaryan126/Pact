@@ -109,6 +109,19 @@ If you can't hit these, the product isn't ready. Either improve detection or nar
 
 Make running the eval a one-command operation. Friction here is fatal, if eval takes 20 minutes of manual setup, you'll skip it and ship regressions.
 
+### Regression gate
+
+Use the local regression gate before changing detector thresholds, classifier logic, or state-machine smoothing:
+
+```sh
+cd /Users/aaryan/Desktop/Pact/FocusMirror/eval
+PYTHONPATH=../python-engine ../python-engine/.venv39/bin/python run_suite.py --gate
+```
+
+The gate checks the current labeled clip set for the behaviors we have already validated: low-angle focused should not become `looking_down`, mouth-only clips should not become `talking` beyond the accepted budget, reading/writing clips should be recoverable through correction, and mixed sessions should stay within focused-time error limits.
+
+The gate is deliberately not the final v1 acceptance bar. It is a practical regression guard for local CV iteration.
+
 ## Beyond v1
 
 - Larger labeled dataset (20+ hours, multiple subjects, diverse demographics).

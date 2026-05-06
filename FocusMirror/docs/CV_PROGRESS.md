@@ -52,6 +52,17 @@ PYTHONPATH=. python -m focusmirror_engine.main --source webcam --fps 5 --preview
 3. Add one more mouth false-positive clip with head turns while chewing/drinking.
 4. Keep `talking_screen` as an accepted v1 limitation unless the product definition changes.
 
+## Regression Gate
+
+Before changing CV thresholds or state-machine behavior, run:
+
+```sh
+cd /Users/aaryan/Desktop/Pact/FocusMirror/eval
+PYTHONPATH=../python-engine ../python-engine/.venv39/bin/python run_suite.py --gate
+```
+
+This refreshes `eval/results/*.csv` and fails if the current validated behaviors regress. To check the already-generated CSV files only, run `../python-engine/.venv39/bin/python eval_gate.py` from `eval/`.
+
 ## Important Product Note
 
 Keep the UI language factual. Do not rename `looking_down` to `phone_use` in v1. The honest interpretation is “head-down time,” with user correction available for reading or writing.

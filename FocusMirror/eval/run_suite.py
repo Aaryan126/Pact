@@ -26,6 +26,7 @@ from run_eval import (
     run_detector,
     write_prediction_csv,
 )
+from eval_gate import run_gate
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--looking-down-pitch", type=float, default=-15.0)
     parser.add_argument("--looking-down-seconds", type=float, default=3.0)
     parser.add_argument("--ear-closed-threshold", type=float, default=0.12)
+    parser.add_argument("--gate", action="store_true", help="Fail if refreshed results regress past accepted thresholds")
     return parser
 
 
@@ -67,7 +69,18 @@ def main() -> int:
             f"corrected_error={row['correction_adjusted_focused_error_seconds']}s"
         )
 
-    write_summary(args.results_dir / "summary.csv", summary_rows)
+    summary_path = args.results_dir / "summary.csv"
+    write_summary(summary_path, summary_rows)
+
+    if args.gate:
+        failures = run_gate(summary_path, args.results_dir)
+        if failures:
+            print("FAIL eval gate")
+            for failure in failures:
+                print(f"- {failure}")
+            return 1
+        print("PASS eval gate")
+
     return 0
 
 
