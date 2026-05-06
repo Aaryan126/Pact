@@ -1,0 +1,13 @@
+{
+  "video": "focused_screen_01.mov",
+  "duration_seconds": 82,
+  "segments": [
+    {
+      "start": 0,
+      "end": 82,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Screen-facing focused work."
+    }
+  ]
+}

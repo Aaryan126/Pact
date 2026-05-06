@@ -45,3 +45,33 @@ def focused_time_error_seconds(y_true: list[str], y_pred: list[str]) -> int:
     actual = sum(1 for value in y_true if value == "focused")
     predicted = sum(1 for value in y_pred if value == "focused")
     return abs(predicted - actual)
+
+
+def focused_time_error_from_focus_truth(actual_focus: list[bool | None], y_pred: list[str]) -> int:
+    actual = sum(1 for value in actual_focus if value is True)
+    predicted = sum(
+        1 for truth, pred in zip(actual_focus, y_pred) if truth is not None and pred == "focused"
+    )
+    return abs(predicted - actual)
+
+
+def correction_adjusted_focused_time_error_seconds(actual_focus: list[bool | None], y_pred: list[str]) -> int:
+    actual = sum(1 for value in actual_focus if value is True)
+    corrected_prediction = sum(
+        1
+        for truth, pred in zip(actual_focus, y_pred)
+        if truth is not None and (pred == "focused" or truth is True)
+    )
+    return abs(corrected_prediction - actual)
+
+
+def focused_binary_metric(actual_focus: list[bool | None], y_pred: list[str]) -> StateMetric:
+    pairs = [(truth, pred == "focused") for truth, pred in zip(actual_focus, y_pred) if truth is not None]
+    tp = sum(1 for truth, pred in pairs if truth is True and pred is True)
+    fp = sum(1 for truth, pred in pairs if truth is False and pred is True)
+    fn = sum(1 for truth, pred in pairs if truth is True and pred is False)
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    support = sum(1 for truth, _pred in pairs if truth is True)
+    return StateMetric(precision, recall, f1, support)

@@ -18,7 +18,7 @@ The states the engine detects (focused, away, looking_down, talking) all have na
 
 - Reduces CPU/GPU load by ~6-10x
 - Reduces battery drain proportionally
-- Still gives 15-25 samples per 5-second smoothing window, plenty for stable classification
+- Still gives 9-15 samples per 3-second smoothing window, enough for stable classification while keeping transitions responsive
 - Reduces thermal load, important for fanless MacBook Airs
 
 If you find yourself thinking "we need faster detection to catch X", reconsider. Most likely X is an event with a duration of multiple seconds and you're already catching it.

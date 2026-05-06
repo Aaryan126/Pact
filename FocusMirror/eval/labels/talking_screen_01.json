@@ -1,0 +1,27 @@
+{
+  "video": "talking_screen_01.mov",
+  "duration_seconds": 42,
+  "segments": [
+    {
+      "start": 0,
+      "end": 8,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Screen-facing before talking."
+    },
+    {
+      "start": 8,
+      "end": 34,
+      "visual_state": "focused",
+      "actual_focus": "unknown",
+      "note": "Mouth-only screen-facing movement test; not treated as v1 talking because there is no social context."
+    },
+    {
+      "start": 34,
+      "end": 42,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Stopped talking."
+    }
+  ]
+}

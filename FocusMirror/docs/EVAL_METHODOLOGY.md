@@ -53,22 +53,24 @@ For each recording, produce a JSON label file with this structure:
   "video": "session_001.mp4",
   "duration_seconds": 1832,
   "segments": [
-    {"start": 0,    "end": 245,  "label": "focused"},
-    {"start": 245,  "end": 312,  "label": "looking_down", "note": "phone use"},
-    {"start": 312,  "end": 318,  "label": "focused", "note": "glanced back at screen"},
-    {"start": 318,  "end": 401,  "label": "looking_down", "note": "phone use"},
-    {"start": 401,  "end": 456,  "label": "talking", "note": "to roommate, out of frame"},
-    ...
+    {"start": 0,    "end": 245,  "visual_state": "focused", "actual_focus": true},
+    {"start": 245,  "end": 312,  "visual_state": "looking_down", "actual_focus": false, "note": "phone use"},
+    {"start": 312,  "end": 318,  "visual_state": "focused", "actual_focus": true, "note": "glanced back at screen"},
+    {"start": 318,  "end": 401,  "visual_state": "looking_down", "actual_focus": true, "note": "reading textbook"},
+    {"start": 401,  "end": 456,  "visual_state": "talking", "actual_focus": false, "note": "to roommate, out of frame"}
   ]
 }
 ```
 
-Labels should match the engine's output states exactly. Use a tool like CVAT, Label Studio, or even a simple custom UI to scrub through the video and mark segment boundaries. For v1 you can also do this in a spreadsheet and convert to JSON, the goal is to get to 100% labeled coverage.
+`visual_state` should match the engine's output states exactly. `actual_focus` records the human truth behind the scene. This distinction matters because the camera can honestly see "head down" without knowing whether the user is reading a textbook or using a phone.
+
+Use a tool like CVAT, Label Studio, or even a simple custom UI to scrub through the video and mark segment boundaries. For v1 you can also do this in a spreadsheet and convert to JSON, the goal is to get to 100% labeled coverage.
 
 **Edge case handling in labels:**
-- Reading a physical book on desk → label as `focused`. The engine may misclassify as `looking_down`; this is a known hard case and the eval will quantify how often.
+- Reading a physical book on desk → `visual_state: "looking_down"`, `actual_focus: true`.
+- Phone use in lap → `visual_state: "looking_down"`, `actual_focus: false`.
 - Brief glances away (<2 seconds) → label as the surrounding state (don't fragment the label timeline for tiny events the engine wouldn't catch anyway).
-- Genuine ambiguous moments → label your best guess and add a `note`.
+- Genuine ambiguous moments → use `actual_focus: "unknown"` and add a `note`.
 
 ## Running the eval
 
@@ -79,9 +81,11 @@ Labels should match the engine's output states exactly. Use a tool like CVAT, La
 3. Produce a per-second prediction timeline.
 4. Compare predictions against ground truth on a per-second basis.
 5. Output:
-   - **Per-state precision, recall, F1**
+   - **Visual-state precision, recall, F1**
    - **Confusion matrix** (which states get confused for which)
-   - **Total focused time error**: |predicted_focused_seconds - actual_focused_seconds|. This is the user-facing metric; even if per-frame F1 is mediocre, if total focused-time is accurate to within ±5%, the summary screen is still honest.
+   - **Visual focused-state time error**: |predicted_focused_seconds - visual_focused_seconds|
+   - **Actual focused-time error**: |predicted_focused_seconds - actual_focus_true_seconds| over known labeled seconds. This is the closest current proxy for the user-facing summary before post-session corrections.
+   - **Correction-adjusted focused-time error**: remaining error after simulated user corrections that mark false non-focused segments as actually focused. This can fix reading/writing undercounts, but it cannot fix false `focused` predictions during distraction.
 
 ## Acceptance thresholds for v1
 

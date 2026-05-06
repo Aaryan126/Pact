@@ -1,0 +1,27 @@
+{
+  "video": "eyes_closed_01.mov",
+  "duration_seconds": 44,
+  "segments": [
+    {
+      "start": 0,
+      "end": 10,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Eyes open, screen-facing."
+    },
+    {
+      "start": 10,
+      "end": 30,
+      "visual_state": "eyes_closed",
+      "actual_focus": false,
+      "note": "Sustained closed eyes."
+    },
+    {
+      "start": 30,
+      "end": 44,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Eyes open again."
+    }
+  ]
+}

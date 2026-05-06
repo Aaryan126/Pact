@@ -2,9 +2,9 @@
   "video": "session_001.mp4",
   "duration_seconds": 600,
   "segments": [
-    { "start": 0, "end": 240, "label": "focused" },
-    { "start": 240, "end": 330, "label": "looking_down", "note": "phone use" },
-    { "start": 330, "end": 420, "label": "away" },
-    { "start": 420, "end": 600, "label": "focused" }
+    { "start": 0, "end": 240, "visual_state": "focused", "actual_focus": true },
+    { "start": 240, "end": 330, "visual_state": "looking_down", "actual_focus": false, "note": "phone use" },
+    { "start": 330, "end": 420, "visual_state": "away", "actual_focus": false },
+    { "start": 420, "end": 600, "visual_state": "focused", "actual_focus": true }
   ]
 }

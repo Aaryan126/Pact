@@ -1,0 +1,27 @@
+{
+  "video": "away_01.mov",
+  "duration_seconds": 66,
+  "segments": [
+    {
+      "start": 0,
+      "end": 10,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Initial seated screen-facing period."
+    },
+    {
+      "start": 10,
+      "end": 55,
+      "visual_state": "away",
+      "actual_focus": false,
+      "note": "User left the camera frame."
+    },
+    {
+      "start": 55,
+      "end": 66,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "User returned to the screen."
+    }
+  ]
+}

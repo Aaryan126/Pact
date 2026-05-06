@@ -1,0 +1,27 @@
+{
+  "video": "looking_down_phone_01.mov",
+  "duration_seconds": 45,
+  "segments": [
+    {
+      "start": 0,
+      "end": 11,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Screen-facing before phone/lap check."
+    },
+    {
+      "start": 11,
+      "end": 34,
+      "visual_state": "looking_down",
+      "actual_focus": false,
+      "note": "Head down toward phone or lap."
+    },
+    {
+      "start": 34,
+      "end": 45,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Returned to screen."
+    }
+  ]
+}

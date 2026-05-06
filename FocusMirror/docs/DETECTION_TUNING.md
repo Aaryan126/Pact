@@ -7,10 +7,11 @@ Per-state thresholds, parameters, and the reasoning behind defaults. Treat these
 | Parameter | Default | Why |
 |---|---|---|
 | Processing fps | 5 | Plenty for second-scale states; saves battery vs. 30fps |
-| Smoothing window | 5 seconds (25 frames at 5fps) | Long enough to filter noise, short enough to feel responsive |
-| Transition debounce | 3 consecutive windows | Prevents flickering between states for marginal cases |
+| Smoothing window | 3 seconds (15 frames at 5fps) | Responsive enough for summary boundaries while still filtering frame noise |
+| Transition debounce | 1 emitted window | Chosen from local eval to reduce stale `focused` time at transitions |
 | Face detection min confidence | 0.5 | MediaPipe default, works well |
 | Face mesh refinement landmarks | enabled | Required for accurate eye/iris position |
+| Recent screen-orientation window | 2 seconds | Reduces false `uncertain` from single-frame pose spikes |
 
 ## State: `away`
 
@@ -30,7 +31,8 @@ Definition: face present, oriented toward screen, eyes open, not talking.
 This is the default state when nothing else fires. Conditions:
 - Face detected with confidence ≥ 0.5
 - Head pose: |yaw| < 25°, |pitch| < 20° (looking roughly at screen)
-- Eyes: EAR > 0.20 (open)
+- Or recent head pose: at least 60% of valid frames in the last 2 seconds are screen-oriented
+- Eyes: EAR > 0.08 (open)
 - Mouth movement: MAR variance over last 3 seconds < talking threshold
 
 If all these hold, classify as `focused`.
@@ -41,8 +43,8 @@ Definition: head pose tilted significantly down, sustained. Likely phone use or 
 
 | Parameter | Default | Notes |
 |---|---|---|
-| Pitch threshold | < -20° (looking down) | Moderate sustained head-down tilt |
-| Sustained duration | 5 seconds | Brief glances down at notebook OK |
+| Pitch threshold | < -15° (looking down) | Moderate sustained head-down tilt; tuned after separating visual state from actual focus |
+| Sustained duration | 3 seconds | The state machine adds a 3-second smoothing window, so this should not be too slow |
 | Window ratio | 85% of recent valid frames | Requires consistent head-down posture |
 | Yaw / roll guardrails | yaw < 35°, roll < 25° | Avoids misclassifying side turns or tilted posture as phone use |
 
@@ -60,15 +62,15 @@ This is the hardest signal. Composition:
 - Mouth-moving threshold: variance > 0.005 (tune via eval)
 
 **Talking signal fires when:**
-- Mouth-moving for ≥ 3 of last 5 seconds, AND
-- Either |yaw| > 30° (turned away from screen) OR a second face is detected in frame
+- Mouth-moving over the last 3 seconds, AND
+- Recent social context in that same window: either |yaw| > 30° (turned away from screen) OR a second face is detected in frame
 
-Why both conditions: mouth movement alone fires too often (chewing gum, reading aloud, mouthing words while thinking). Adding the head-turn or second-face requirement filters most false positives.
+Why both conditions: mouth movement alone fires too often (chewing gum, reading aloud, mouthing words while thinking). Adding recent head-turn or second-face context filters most false positives while not requiring every single frame to be turned away.
 
 | Parameter | Default | Notes |
 |---|---|---|
 | MAR variance threshold | 0.005 | Calibrate per-eval |
-| Mouth-moving window | 3 of last 5 seconds | Filters one-off mouth movements |
+| Mouth-moving window | 3 seconds | Filters one-off mouth movements |
 | Head-turn angle | yaw > 30° | A clear turn, not just a glance |
 
 Known limitation: video calls (talking while looking at screen) won't be flagged as talking because head pose is forward-facing. This is acceptable for v1 — students on video study calls are arguably "in a session" and the time isn't pure individual focus, but it isn't pure distraction either. Document the limitation.
@@ -79,10 +81,10 @@ Definition: face present, oriented toward screen, but eyes closed for sustained 
 
 | Parameter | Default | Notes |
 |---|---|---|
-| EAR threshold | 0.20 | Below this counts as closed |
+| EAR threshold | 0.08 | Below this counts as closed; tuned on the first local clips to avoid false eyes-closed during normal focused work |
 | Sustained duration | 3 seconds | Allow normal blinks (~0.3s) and prolonged blinks |
 
-Note: this overlaps with `looking_down` if the user's head is down and eyes are closed (sleeping). State machine priority: `looking_down` wins if pitch is < -25°, otherwise `eyes_closed`.
+Note: this overlaps with `looking_down` if the user's head is down and eyes are closed (sleeping). State machine priority: `looking_down` wins if pitch is < -15°, otherwise `eyes_closed`.
 
 ## State: `uncertain`
 
@@ -98,7 +100,7 @@ Better to mark `uncertain` than to confidently classify wrong. The summary scree
 When multiple conditions could fire, apply this priority order:
 
 1. `away` (no face) — overrides everything
-2. `looking_down` (pitch < -25° sustained)
+2. `looking_down` (pitch < -15° sustained)
 3. `talking` (mouth + head-turn or second face)
 4. `eyes_closed` (eyes shut sustained)
 5. `focused` (default if face is present and oriented)

@@ -1,0 +1,55 @@
+{
+  "video": "mixed_session_01.mov",
+  "duration_seconds": 181,
+  "segments": [
+    {
+      "start": 0,
+      "end": 30,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Initial focused work."
+    },
+    {
+      "start": 30,
+      "end": 58,
+      "visual_state": "looking_down",
+      "actual_focus": false,
+      "note": "Phone/lap head-down period."
+    },
+    {
+      "start": 58,
+      "end": 66,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Returned to focused work."
+    },
+    {
+      "start": 66,
+      "end": 93,
+      "visual_state": "away",
+      "actual_focus": false,
+      "note": "Away from frame."
+    },
+    {
+      "start": 93,
+      "end": 121,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Returned to focused work."
+    },
+    {
+      "start": 121,
+      "end": 153,
+      "visual_state": "eyes_closed",
+      "actual_focus": false,
+      "note": "Sustained closed eyes."
+    },
+    {
+      "start": 153,
+      "end": 181,
+      "visual_state": "talking",
+      "actual_focus": false,
+      "note": "Talking segment."
+    }
+  ]
+}

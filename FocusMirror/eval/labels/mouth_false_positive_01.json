@@ -1,0 +1,13 @@
+{
+  "video": "mouth_false_positive_01.mov",
+  "duration_seconds": 40,
+  "segments": [
+    {
+      "start": 0,
+      "end": 40,
+      "visual_state": "focused",
+      "actual_focus": true,
+      "note": "Mouth movement false-positive test such as chewing, yawning, drinking, silent mouth movement, or chin rest."
+    }
+  ]
+}

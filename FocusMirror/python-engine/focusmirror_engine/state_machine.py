@@ -20,8 +20,8 @@ class RollingStateMachine:
         self,
         *,
         fps: int = 5,
-        window_seconds: float = 5.0,
-        transition_windows: int = 3,
+        window_seconds: float = 3.0,
+        transition_windows: int = 1,
         emit_interval_seconds: float = 1.0,
     ) -> None:
         self.fps = fps
