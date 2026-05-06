@@ -2,7 +2,7 @@ import SwiftUI
 
 struct HistoryView: View {
     @Environment(AppModel.self) private var model
-    @Binding var path: [UUID]
+    let openSession: (UUID) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -34,7 +34,7 @@ struct HistoryView: View {
 
     private func historyRow(for session: FocusSession) -> some View {
         Button {
-            path.append(session.id)
+            openSession(session.id)
         } label: {
             HStack(alignment: .center, spacing: 12) {
                 ZStack {

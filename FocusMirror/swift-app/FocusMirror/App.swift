@@ -14,7 +14,6 @@ struct FocusMirrorApp: App {
                 .frame(minWidth: 840, minHeight: 450)
         }
         .defaultSize(width: 860, height: 470)
-        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
 
         MenuBarExtra {
@@ -44,12 +43,7 @@ private struct RootWindowChrome<Content: View>: View {
             HomeTheme.windowBackground
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                Color.clear
-                    .frame(height: 28)
-
-                content
-            }
+            content
         }
         .background(HomeTheme.windowBackground.ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -93,71 +87,35 @@ private struct WindowConfigurator: NSViewRepresentable {
         window.appearance = NSAppearance(named: .darkAqua)
         window.isOpaque = true
         window.backgroundColor = chromeBackground
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = false
+        window.titleVisibility = .visible
         window.isMovableByWindowBackground = true
 
-        if !window.styleMask.contains(.fullSizeContentView) {
-            window.styleMask.insert(.fullSizeContentView)
+        if window.styleMask.contains(.fullSizeContentView) {
+            window.styleMask.remove(.fullSizeContentView)
         }
 
         window.contentView?.wantsLayer = true
         window.contentView?.layer?.backgroundColor = chromeBackground.cgColor
+
+        showNativeTrafficLights(in: window)
 
         if !context.coordinator.hasConfiguredSize {
             context.coordinator.hasConfiguredSize = true
             window.setContentSize(contentSize)
             window.center()
         }
-
-        context.coordinator.scheduleTrafficLightPositioning(for: window)
     }
 
-    private static func positionTrafficLights(in window: NSWindow) {
+    private func showNativeTrafficLights(in window: NSWindow) {
         let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
-        let buttons = buttonTypes.compactMap { window.standardWindowButton($0) }
-        guard
-            let firstButton = buttons.first,
-            let buttonSuperview = firstButton.superview
-        else { return }
-
-        let buttonSize = firstButton.frame.size
-        let originX: CGFloat = 22
-        let centerYFromTop: CGFloat = 42
-        let originY = buttonSuperview.bounds.height - centerYFromTop - (buttonSize.height / 2)
-
-        for (index, button) in buttons.enumerated() {
-            button.setFrameOrigin(
-                CGPoint(
-                    x: originX + CGFloat(index) * 19,
-                    y: originY
-                )
-            )
+        for buttonType in buttonTypes {
+            window.standardWindowButton(buttonType)?.isHidden = false
         }
     }
 
     @MainActor
     final class Coordinator: NSObject {
         var hasConfiguredSize = false
-        private weak var positionedWindow: NSWindow?
-
-        func scheduleTrafficLightPositioning(for window: NSWindow) {
-            positionedWindow = window
-            NSObject.cancelPreviousPerformRequests(
-                withTarget: self,
-                selector: #selector(repositionTrafficLights),
-                object: nil
-            )
-
-            repositionTrafficLights()
-            perform(#selector(repositionTrafficLights), with: nil, afterDelay: 0, inModes: [.common])
-            perform(#selector(repositionTrafficLights), with: nil, afterDelay: 0.05, inModes: [.common])
-            perform(#selector(repositionTrafficLights), with: nil, afterDelay: 0.2, inModes: [.common])
-        }
-
-        @objc private func repositionTrafficLights() {
-            guard let positionedWindow else { return }
-            WindowConfigurator.positionTrafficLights(in: positionedWindow)
-        }
     }
 }

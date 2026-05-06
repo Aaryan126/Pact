@@ -2,7 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(AppModel.self) private var model
-    @Binding var path: [UUID]
+    let openSession: (UUID) -> Void
     @State private var cameraMessage: String?
 
     var body: some View {
@@ -21,7 +21,7 @@ struct HomeView: View {
                     .fill(HomeTheme.border)
                     .frame(width: 1)
 
-                HistoryView(path: $path)
+                HistoryView(openSession: openSession)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -33,74 +33,70 @@ struct HomeView: View {
         @Bindable var model = model
 
         return VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                AppMark()
-                    .padding(.bottom, 18)
+            AppMark()
+                .padding(.bottom, 18)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Start session")
-                        .font(.system(size: 30, weight: .semibold, design: .default))
-                        .foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Start session")
+                    .font(.system(size: 30, weight: .semibold, design: .default))
+                    .foregroundStyle(.primary)
 
-                    Text("FocusMirror observes silently and\nsummarizes screen focus after you\nend the session.")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(HomeTheme.secondaryText)
-                        .lineSpacing(3)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: true, vertical: true)
-                }
+                Text("FocusMirror observes silently and\nsummarizes screen focus after you\nend the session.")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(HomeTheme.secondaryText)
+                    .lineSpacing(3)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: true, vertical: true)
+            }
 
-                Rectangle()
-                    .fill(HomeTheme.border)
-                    .frame(height: 1)
-                    .padding(.top, 15)
-                    .padding(.bottom, 18)
+            Rectangle()
+                .fill(HomeTheme.border)
+                .frame(height: 1)
+                .padding(.top, 15)
+                .padding(.bottom, 18)
 
-                VStack(alignment: .leading, spacing: 9) {
-                    Text("Length")
-                        .font(.system(size: 15, weight: .semibold))
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Length")
+                    .font(.system(size: 15, weight: .semibold))
 
-                    SessionLengthSegmentedControl(selection: $model.selectedLength)
-                        .frame(width: 318, height: 34)
-                }
+                SessionLengthSegmentedControl(selection: $model.selectedLength)
+                    .frame(width: 318, height: 34)
+            }
 
-                Button {
-                    Task {
-                        let status = await CameraPermission.request()
-                        guard status == .authorized else {
-                            cameraMessage = "Camera permission is required before starting."
-                            return
-                        }
-                        model.startSession()
+            Button {
+                Task {
+                    let status = await CameraPermission.request()
+                    guard status == .authorized else {
+                        cameraMessage = "Camera permission is required before starting."
+                        return
                     }
-                } label: {
+                    model.startSession()
+                }
+            } label: {
+                ZStack {
+                    HomeTheme.primaryBlueGradient
                     Label("Start", systemImage: "play.fill")
                         .font(.system(size: 17, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 43)
+                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white)
-                .background(HomeTheme.primaryBlueGradient)
-                .clipShape(RoundedRectangle(cornerRadius: 7))
-                .padding(.top, 20)
-
-                if let error = model.engineError ?? cameraMessage {
-                    Text(error)
-                        .foregroundStyle(Color(red: 1.0, green: 0.28, blue: 0.30))
-                        .font(.system(size: 12, weight: .medium))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 16)
-                }
+                .frame(width: 318, height: 43)
+                .contentShape(RoundedRectangle(cornerRadius: 7))
             }
-            .frame(width: 318, alignment: .leading)
+            .buttonStyle(.plain)
+            .clipShape(RoundedRectangle(cornerRadius: 7))
+            .padding(.top, 20)
 
-            Spacer(minLength: 0)
+            if let error = model.engineError ?? cameraMessage {
+                Text(error)
+                    .foregroundStyle(Color(red: 1.0, green: 0.28, blue: 0.30))
+                    .font(.system(size: 12, weight: .medium))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 16)
+            }
         }
+        .frame(width: 318, alignment: .leading)
         .padding(.leading, 66)
-        .padding(.top, 14)
-        .padding(.bottom, 28)
-        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .leading)
     }
 }
 
