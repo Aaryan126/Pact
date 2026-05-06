@@ -12,18 +12,28 @@ struct HomeView: View {
             HomeTheme.windowBackground
                 .ignoresSafeArea()
 
-            HStack(spacing: 24) {
+            HStack(spacing: 0) {
                 startPanel(model: model)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .frame(width: 455, alignment: .leading)
+                    .frame(maxHeight: .infinity, alignment: .leading)
+
+                Rectangle()
+                    .fill(HomeTheme.border)
+                    .frame(width: 1)
 
                 HistoryView(path: $path)
-                    .frame(width: 470)
+                    .frame(width: 345)
             }
-            .padding(.horizontal, 28)
-            .padding(.top, 44)
-            .padding(.bottom, 42)
+            .frame(width: 800, height: 410)
+            .background(HomeTheme.panelBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 11))
+            .overlay {
+                RoundedRectangle(cornerRadius: 11)
+                    .stroke(HomeTheme.panelStroke, lineWidth: 1)
+            }
+            .padding(14)
         }
-        .navigationTitle("")
+        .navigationTitle("FocusMirror")
     }
 
     private func startPanel(model: AppModel) -> some View {
@@ -32,17 +42,17 @@ struct HomeView: View {
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 AppMark()
-                    .padding(.bottom, 36)
+                    .padding(.bottom, 24)
 
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 15) {
                     Text("Start session")
-                        .font(.system(size: 48, weight: .semibold, design: .default))
+                        .font(.system(size: 28, weight: .semibold, design: .default))
                         .foregroundStyle(.primary)
 
                     Text("FocusMirror observes silently and summarizes screen focus\nafter you end the session.")
-                        .font(.system(size: 19, weight: .regular))
+                        .font(.system(size: 15, weight: .regular))
                         .foregroundStyle(HomeTheme.secondaryText)
-                        .lineSpacing(6)
+                        .lineSpacing(4)
                         .lineLimit(2)
                         .fixedSize(horizontal: true, vertical: true)
                 }
@@ -50,15 +60,15 @@ struct HomeView: View {
                 Rectangle()
                     .fill(HomeTheme.border)
                     .frame(height: 1)
-                    .padding(.top, 34)
-                    .padding(.bottom, 31)
+                    .padding(.top, 24)
+                    .padding(.bottom, 24)
 
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 14) {
                     Text("Length")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
 
                     SessionLengthSegmentedControl(selection: $model.selectedLength)
-                        .frame(height: 58)
+                        .frame(height: 42)
                 }
 
                 Button {
@@ -72,45 +82,39 @@ struct HomeView: View {
                     }
                 } label: {
                     Label("Start", systemImage: "play.fill")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.system(size: 18, weight: .semibold))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 70)
+                        .frame(height: 48)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
                 .background(HomeTheme.primaryBlue)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .padding(.top, 42)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .padding(.top, 28)
 
                 if let error = model.engineError ?? cameraMessage {
                     Text(error)
                         .foregroundStyle(Color(red: 1.0, green: 0.28, blue: 0.30))
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 24)
+                        .padding(.top, 16)
                 }
             }
-            .frame(maxWidth: 760, alignment: .leading)
+            .frame(width: 380, alignment: .leading)
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 54)
-        .padding(.top, 60)
-        .padding(.bottom, 46)
+        .padding(.horizontal, 34)
+        .padding(.top, 32)
+        .padding(.bottom, 28)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(HomeTheme.panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(HomeTheme.panelStroke, lineWidth: 1)
-        }
     }
 }
 
 private struct AppMark: View {
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 9)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -122,20 +126,20 @@ private struct AppMark: View {
                     )
                 )
                 .overlay {
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 9)
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
                 }
 
             Circle()
-                .stroke(HomeTheme.primaryBlue, lineWidth: 5)
-                .frame(width: 34, height: 34)
+                .stroke(HomeTheme.primaryBlue, lineWidth: 3.5)
+                .frame(width: 24, height: 24)
 
             Circle()
-                .stroke(HomeTheme.primaryBlue.opacity(0.55), lineWidth: 4)
-                .frame(width: 48, height: 48)
+                .stroke(HomeTheme.primaryBlue.opacity(0.55), lineWidth: 3)
+                .frame(width: 34, height: 34)
         }
-        .frame(width: 64, height: 64)
-        .shadow(color: .black.opacity(0.30), radius: 18, x: 0, y: 10)
+        .frame(width: 45, height: 45)
+        .shadow(color: .black.opacity(0.30), radius: 12, x: 0, y: 7)
     }
 }
 
@@ -149,7 +153,7 @@ private struct SessionLengthSegmentedControl: View {
                     selection = length
                 } label: {
                     Text(length.label)
-                        .font(.system(size: 21, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(selection == length ? .white : HomeTheme.secondaryText)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .contentShape(Rectangle())
@@ -157,7 +161,7 @@ private struct SessionLengthSegmentedControl: View {
                 .buttonStyle(.plain)
                 .background {
                     if selection == length {
-                        RoundedRectangle(cornerRadius: 11)
+                        RoundedRectangle(cornerRadius: 7)
                             .fill(HomeTheme.primaryBlue)
                             .padding(2)
                     }
@@ -166,14 +170,14 @@ private struct SessionLengthSegmentedControl: View {
                 if index < SessionLength.allCases.count - 1 {
                     Rectangle()
                         .fill(HomeTheme.segmentDivider)
-                        .frame(width: 1, height: 34)
+                        .frame(width: 1, height: 27)
                 }
             }
         }
         .background(HomeTheme.segmentBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: 7))
         .overlay {
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 7)
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         }
     }
