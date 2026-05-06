@@ -40,31 +40,30 @@ private struct RootWindowChrome<Content: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ZStack(alignment: .leading) {
-                Color.black
-                Text("FocusMirror")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.64))
-                    .padding(.leading, 80)
-            }
-            .frame(height: 31)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(Color.white.opacity(0.06))
-                    .frame(height: 1)
-            }
+        ZStack {
+            HomeTheme.windowBackground
+                .ignoresSafeArea()
 
-            content
+            VStack(spacing: 0) {
+                Color.clear
+                    .frame(height: 28)
+
+                content
+            }
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(HomeTheme.windowBackground.ignoresSafeArea())
         .preferredColorScheme(.dark)
     }
 }
 
 private struct WindowConfigurator: NSViewRepresentable {
     let contentSize: CGSize
-    private let chromeBackground = NSColor.black
+    private let chromeBackground = NSColor(
+        red: 0.016,
+        green: 0.020,
+        blue: 0.030,
+        alpha: 1.0
+    )
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -109,6 +108,28 @@ private struct WindowConfigurator: NSViewRepresentable {
             context.coordinator.hasConfiguredSize = true
             window.setContentSize(contentSize)
             window.center()
+        }
+
+        positionTrafficLights(in: window)
+    }
+
+    private func positionTrafficLights(in window: NSWindow) {
+        let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        let buttons = buttonTypes.compactMap { window.standardWindowButton($0) }
+        guard let firstButton = buttons.first, let buttonSuperview = firstButton.superview else { return }
+
+        let buttonSize = firstButton.frame.size
+        let originX: CGFloat = 22
+        let centerYFromTop: CGFloat = 42
+        let originY = buttonSuperview.bounds.height - centerYFromTop - (buttonSize.height / 2)
+
+        for (index, button) in buttons.enumerated() {
+            button.setFrameOrigin(
+                CGPoint(
+                    x: originX + CGFloat(index) * 19,
+                    y: originY
+                )
+            )
         }
     }
 

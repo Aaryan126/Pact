@@ -22,18 +22,11 @@ struct HomeView: View {
                     .frame(width: 1)
 
                 HistoryView(path: $path)
-                    .frame(width: 370)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .frame(width: 800, height: 410)
-            .background(HomeTheme.panelBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 11))
-            .overlay {
-                RoundedRectangle(cornerRadius: 11)
-                    .stroke(HomeTheme.panelStroke, lineWidth: 1)
-            }
-            .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationTitle("FocusMirror")
+        .navigationTitle("")
     }
 
     private func startPanel(model: AppModel) -> some View {
@@ -42,33 +35,33 @@ struct HomeView: View {
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 AppMark()
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 18)
 
-                VStack(alignment: .leading, spacing: 15) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Start session")
-                        .font(.system(size: 28, weight: .semibold, design: .default))
+                        .font(.system(size: 30, weight: .semibold, design: .default))
                         .foregroundStyle(.primary)
 
-                    Text("FocusMirror observes silently and summarizes screen focus\nafter you end the session.")
-                        .font(.system(size: 15, weight: .regular))
+                    Text("FocusMirror observes silently and\nsummarizes screen focus after you\nend the session.")
+                        .font(.system(size: 16, weight: .regular))
                         .foregroundStyle(HomeTheme.secondaryText)
-                        .lineSpacing(4)
-                        .lineLimit(2)
+                        .lineSpacing(3)
+                        .lineLimit(3)
                         .fixedSize(horizontal: true, vertical: true)
                 }
 
                 Rectangle()
                     .fill(HomeTheme.border)
                     .frame(height: 1)
-                    .padding(.top, 24)
-                    .padding(.bottom, 24)
+                    .padding(.top, 15)
+                    .padding(.bottom, 18)
 
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 9) {
                     Text("Length")
                         .font(.system(size: 15, weight: .semibold))
 
                     SessionLengthSegmentedControl(selection: $model.selectedLength)
-                        .frame(height: 42)
+                        .frame(width: 318, height: 34)
                 }
 
                 Button {
@@ -82,15 +75,15 @@ struct HomeView: View {
                     }
                 } label: {
                     Label("Start", systemImage: "play.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 48)
+                        .frame(height: 43)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
-                .background(HomeTheme.primaryBlue)
+                .background(HomeTheme.primaryBlueGradient)
                 .clipShape(RoundedRectangle(cornerRadius: 7))
-                .padding(.top, 28)
+                .padding(.top, 20)
 
                 if let error = model.engineError ?? cameraMessage {
                     Text(error)
@@ -100,12 +93,12 @@ struct HomeView: View {
                         .padding(.top, 16)
                 }
             }
-            .frame(width: 365, alignment: .leading)
+            .frame(width: 318, alignment: .leading)
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 34)
-        .padding(.top, 32)
+        .padding(.leading, 66)
+        .padding(.top, 14)
         .padding(.bottom, 28)
         .frame(maxHeight: .infinity, alignment: .topLeading)
     }
@@ -114,32 +107,32 @@ struct HomeView: View {
 private struct AppMark: View {
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 9)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.10),
-                            Color.white.opacity(0.04)
+                            Color.white.opacity(0.12),
+                            Color.white.opacity(0.035)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
                 .overlay {
-                    RoundedRectangle(cornerRadius: 9)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
                 }
 
             Circle()
-                .stroke(HomeTheme.primaryBlue, lineWidth: 3.5)
-                .frame(width: 24, height: 24)
+                .stroke(HomeTheme.primaryBlue, lineWidth: 4.5)
+                .frame(width: 41, height: 41)
 
             Circle()
-                .stroke(HomeTheme.primaryBlue.opacity(0.55), lineWidth: 3)
-                .frame(width: 34, height: 34)
+                .stroke(HomeTheme.primaryBlue.opacity(0.70), lineWidth: 4)
+                .frame(width: 52, height: 52)
         }
-        .frame(width: 45, height: 45)
-        .shadow(color: .black.opacity(0.30), radius: 12, x: 0, y: 7)
+        .frame(width: 60, height: 60)
+        .shadow(color: .black.opacity(0.38), radius: 14, x: 0, y: 8)
     }
 }
 
@@ -153,7 +146,7 @@ private struct SessionLengthSegmentedControl: View {
                     selection = length
                 } label: {
                     Text(length.label)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(selection == length ? .white : HomeTheme.secondaryText)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .contentShape(Rectangle())
@@ -162,7 +155,7 @@ private struct SessionLengthSegmentedControl: View {
                 .background {
                     if selection == length {
                         RoundedRectangle(cornerRadius: 7)
-                            .fill(HomeTheme.primaryBlue)
+                            .fill(HomeTheme.primaryBlueGradient)
                             .padding(2)
                     }
                 }
@@ -170,7 +163,7 @@ private struct SessionLengthSegmentedControl: View {
                 if index < SessionLength.allCases.count - 1 {
                     Rectangle()
                         .fill(HomeTheme.segmentDivider)
-                        .frame(width: 1, height: 27)
+                        .frame(width: 1, height: 24)
                 }
             }
         }
@@ -184,16 +177,16 @@ private struct SessionLengthSegmentedControl: View {
 }
 
 enum HomeTheme {
-    static let chromeBackground = Color.black
-    static let windowBackground = chromeBackground
-    static let panelBackground = LinearGradient(
+    static let chromeBackground = Color(red: 0.010, green: 0.013, blue: 0.020)
+    static let windowBackground = LinearGradient(
         colors: [
-            Color.black,
-            Color.black
+            Color(red: 0.035, green: 0.043, blue: 0.060),
+            Color(red: 0.006, green: 0.008, blue: 0.014)
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+    static let panelBackground = windowBackground
     static let historyRowBackground = LinearGradient(
         colors: [
             Color.white.opacity(0.105),
@@ -203,9 +196,17 @@ enum HomeTheme {
         endPoint: .bottomTrailing
     )
     static let panelStroke = Color.white.opacity(0.13)
-    static let border = Color.white.opacity(0.12)
+    static let border = Color.white.opacity(0.08)
     static let secondaryText = Color.white.opacity(0.62)
-    static let primaryBlue = Color(red: 0.02, green: 0.43, blue: 0.96)
-    static let segmentBackground = Color.white.opacity(0.065)
+    static let primaryBlue = Color(red: 0.02, green: 0.40, blue: 0.98)
+    static let primaryBlueGradient = LinearGradient(
+        colors: [
+            Color(red: 0.03, green: 0.43, blue: 1.0),
+            Color(red: 0.02, green: 0.18, blue: 0.82)
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+    static let segmentBackground = Color.white.opacity(0.045)
     static let segmentDivider = Color.white.opacity(0.16)
 }

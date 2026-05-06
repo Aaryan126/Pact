@@ -7,7 +7,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            Color.black
+            HomeTheme.windowBackground
                 .ignoresSafeArea()
 
             NavigationStack(path: $path) {
@@ -27,15 +27,15 @@ struct ContentView: View {
                         HomeView(path: $path)
                     }
                 }
-                .background(Color.black.ignoresSafeArea())
+                .background(HomeTheme.windowBackground.ignoresSafeArea())
                 .navigationDestination(for: UUID.self) { sessionID in
                     SessionSummaryView(sessionID: sessionID)
-                        .background(Color.black.ignoresSafeArea())
+                        .background(HomeTheme.windowBackground.ignoresSafeArea())
                 }
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(HomeTheme.windowBackground.ignoresSafeArea())
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(HomeTheme.windowBackground.ignoresSafeArea())
         .preferredColorScheme(.dark)
     }
 }
