@@ -8,7 +8,7 @@ struct FocusMirrorApp: App {
         WindowGroup {
             ContentView()
                 .environment(model)
-                .frame(minWidth: 900, minHeight: 620)
+                .frame(minWidth: 1180, minHeight: 700)
         }
         .windowResizability(.contentMinSize)
 
