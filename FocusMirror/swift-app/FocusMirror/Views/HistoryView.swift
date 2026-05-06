@@ -25,7 +25,7 @@ struct HistoryView: View {
                 .scrollIndicators(.hidden)
             }
         }
-        .padding(.horizontal, 31)
+        .padding(.horizontal, 30)
         .padding(.top, 32)
         .padding(.bottom, 28)
         .frame(maxHeight: .infinity, alignment: .topLeading)
@@ -35,23 +35,30 @@ struct HistoryView: View {
         Button {
             path.append(session.id)
         } label: {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(session.startTime.formatted(date: .abbreviated, time: .shortened))
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                        .allowsTightening(true)
                     Text("\(Int((session.screenFocusedRatio * 100).rounded()))% screen focus")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(HomeTheme.secondaryText)
+                        .lineLimit(1)
                 }
+                .layoutPriority(1)
 
                 Spacer()
 
                 Text(formatMinutes(session.duration))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(HomeTheme.secondaryText)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 16)
             .frame(height: 70)
             .background(HomeTheme.historyRowBackground)
             .clipShape(RoundedRectangle(cornerRadius: 7))

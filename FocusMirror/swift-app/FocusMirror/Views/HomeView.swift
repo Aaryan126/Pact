@@ -14,7 +14,7 @@ struct HomeView: View {
 
             HStack(spacing: 0) {
                 startPanel(model: model)
-                    .frame(width: 455, alignment: .leading)
+                    .frame(width: 430, alignment: .leading)
                     .frame(maxHeight: .infinity, alignment: .leading)
 
                 Rectangle()
@@ -22,7 +22,7 @@ struct HomeView: View {
                     .frame(width: 1)
 
                 HistoryView(path: $path)
-                    .frame(width: 345)
+                    .frame(width: 370)
             }
             .frame(width: 800, height: 410)
             .background(HomeTheme.panelBackground)
@@ -100,7 +100,7 @@ struct HomeView: View {
                         .padding(.top, 16)
                 }
             }
-            .frame(width: 380, alignment: .leading)
+            .frame(width: 365, alignment: .leading)
 
             Spacer(minLength: 0)
         }
@@ -184,11 +184,12 @@ private struct SessionLengthSegmentedControl: View {
 }
 
 enum HomeTheme {
-    static let windowBackground = Color(red: 0.045, green: 0.046, blue: 0.047)
+    static let chromeBackground = Color.black
+    static let windowBackground = chromeBackground
     static let panelBackground = LinearGradient(
         colors: [
-            Color(red: 0.078, green: 0.080, blue: 0.083),
-            Color(red: 0.040, green: 0.044, blue: 0.045)
+            Color.black,
+            Color.black
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing

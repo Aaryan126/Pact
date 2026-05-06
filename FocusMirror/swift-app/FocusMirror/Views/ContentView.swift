@@ -6,26 +6,36 @@ struct ContentView: View {
     @State private var path: [UUID] = []
 
     var body: some View {
-        NavigationStack(path: $path) {
-            Group {
-                if !hasCompletedOnboarding {
-                    OnboardingView {
-                        hasCompletedOnboarding = true
-                    }
-                } else if model.isSessionActive {
-                    ActiveSessionView {
-                        model.endSession()
-                        if let completed = model.latestCompletedSession {
-                            path.append(completed.id)
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+
+            NavigationStack(path: $path) {
+                Group {
+                    if !hasCompletedOnboarding {
+                        OnboardingView {
+                            hasCompletedOnboarding = true
                         }
+                    } else if model.isSessionActive {
+                        ActiveSessionView {
+                            model.endSession()
+                            if let completed = model.latestCompletedSession {
+                                path.append(completed.id)
+                            }
+                        }
+                    } else {
+                        HomeView(path: $path)
                     }
-                } else {
-                    HomeView(path: $path)
+                }
+                .background(Color.black.ignoresSafeArea())
+                .navigationDestination(for: UUID.self) { sessionID in
+                    SessionSummaryView(sessionID: sessionID)
+                        .background(Color.black.ignoresSafeArea())
                 }
             }
-            .navigationDestination(for: UUID.self) { sessionID in
-                SessionSummaryView(sessionID: sessionID)
-            }
+            .background(Color.black.ignoresSafeArea())
         }
+        .background(Color.black.ignoresSafeArea())
+        .preferredColorScheme(.dark)
     }
 }
