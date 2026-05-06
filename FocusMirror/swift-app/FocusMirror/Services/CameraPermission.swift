@@ -24,6 +24,11 @@ enum CameraPermission {
     }
 
     static func request() async -> CameraPermissionStatus {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        guard status == .notDetermined else {
+            return CameraPermissionStatus(status)
+        }
+
         let granted = await AVCaptureDevice.requestAccess(for: .video)
         return granted ? .authorized : CameraPermissionStatus(AVCaptureDevice.authorizationStatus(for: .video))
     }

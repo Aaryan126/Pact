@@ -80,6 +80,7 @@ final class AppModel {
         activeTargetDuration = nil
         activeSegments = []
         lastEventElapsed = 0
+        engineError = nil
     }
 
     func update(segmentID: UUID, in sessionID: UUID, correction: SegmentCorrection?) {

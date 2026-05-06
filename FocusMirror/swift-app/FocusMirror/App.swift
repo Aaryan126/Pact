@@ -110,13 +110,16 @@ private struct WindowConfigurator: NSViewRepresentable {
             window.center()
         }
 
-        positionTrafficLights(in: window)
+        context.coordinator.scheduleTrafficLightPositioning(for: window)
     }
 
-    private func positionTrafficLights(in window: NSWindow) {
+    private static func positionTrafficLights(in window: NSWindow) {
         let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
         let buttons = buttonTypes.compactMap { window.standardWindowButton($0) }
-        guard let firstButton = buttons.first, let buttonSuperview = firstButton.superview else { return }
+        guard
+            let firstButton = buttons.first,
+            let buttonSuperview = firstButton.superview
+        else { return }
 
         let buttonSize = firstButton.frame.size
         let originX: CGFloat = 22
@@ -133,7 +136,28 @@ private struct WindowConfigurator: NSViewRepresentable {
         }
     }
 
-    final class Coordinator {
+    @MainActor
+    final class Coordinator: NSObject {
         var hasConfiguredSize = false
+        private weak var positionedWindow: NSWindow?
+
+        func scheduleTrafficLightPositioning(for window: NSWindow) {
+            positionedWindow = window
+            NSObject.cancelPreviousPerformRequests(
+                withTarget: self,
+                selector: #selector(repositionTrafficLights),
+                object: nil
+            )
+
+            repositionTrafficLights()
+            perform(#selector(repositionTrafficLights), with: nil, afterDelay: 0, inModes: [.common])
+            perform(#selector(repositionTrafficLights), with: nil, afterDelay: 0.05, inModes: [.common])
+            perform(#selector(repositionTrafficLights), with: nil, afterDelay: 0.2, inModes: [.common])
+        }
+
+        @objc private func repositionTrafficLights() {
+            guard let positionedWindow else { return }
+            WindowConfigurator.positionTrafficLights(in: positionedWindow)
+        }
     }
 }

@@ -5,21 +5,22 @@ struct ActiveSessionView: View {
     let endSession: () -> Void
 
     var body: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: 42) {
             Spacer()
-            VStack(spacing: 12) {
-                HStack(spacing: 8) {
+            VStack(spacing: 18) {
+                HStack(spacing: 12) {
                     Circle()
                         .fill(Color.red)
-                        .frame(width: 10, height: 10)
+                        .frame(width: 14, height: 14)
                     Text("Camera on. Processing locally. No recording.")
+                        .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
 
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let elapsed = context.date.timeIntervalSince(model.activeSessionStartedAt ?? context.date)
                     Text(formatClock(elapsed))
-                        .font(.system(size: 64, weight: .medium, design: .rounded))
+                        .font(.system(size: 110, weight: .medium, design: .rounded))
                         .monospacedDigit()
                 }
             }
@@ -28,7 +29,8 @@ struct ActiveSessionView: View {
                 endSession()
             } label: {
                 Label("End session", systemImage: "stop.fill")
-                    .frame(width: 180)
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 240, height: 42)
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
@@ -42,6 +44,6 @@ struct ActiveSessionView: View {
             }
             Spacer()
         }
-        .padding(48)
+        .padding(64)
     }
 }

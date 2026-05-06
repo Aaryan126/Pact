@@ -9,6 +9,7 @@ final class PythonEngineProcess {
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
     private var stdoutBuffer = Data()
+    private var stderrBuffer = Data()
     private let decoder = JSONDecoder()
 
     var isRunning: Bool {
@@ -54,9 +55,9 @@ final class PythonEngineProcess {
         }
         stderrPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
-            guard !data.isEmpty, let message = String(data: data, encoding: .utf8) else { return }
+            guard !data.isEmpty else { return }
             Task { @MainActor in
-                self?.consumeStderr(message)
+                self?.consumeStderr(data)
             }
         }
         process.terminationHandler = { [weak self] _ in
@@ -66,6 +67,7 @@ final class PythonEngineProcess {
                 self?.process = nil
                 self?.stdoutPipe = nil
                 self?.stderrPipe = nil
+                self?.stderrBuffer.removeAll()
             }
         }
 
@@ -85,6 +87,7 @@ final class PythonEngineProcess {
         stdoutPipe = nil
         stderrPipe = nil
         stdoutBuffer.removeAll()
+        stderrBuffer.removeAll()
     }
 
     private func consumeStdout(_ data: Data) {
@@ -102,13 +105,36 @@ final class PythonEngineProcess {
         }
     }
 
-    private func consumeStderr(_ message: String) {
+    private func consumeStderr(_ data: Data) {
+        stderrBuffer.append(data)
+        while let newline = stderrBuffer.firstIndex(of: 0x0A) {
+            let lineData = stderrBuffer[..<newline]
+            stderrBuffer.removeSubrange(...newline)
+            consumeStderrLine(Data(lineData))
+        }
+    }
+
+    private func consumeStderrLine(_ data: Data) {
+        guard let message = String(data: data, encoding: .utf8) else { return }
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !Self.isBenignEngineStderr(trimmed) else { return }
         onError?(trimmed)
     }
 
     private static func isBenignEngineStderr(_ message: String) -> Bool {
+        if message == "INFO:" || message == "WARNING:" {
+            return true
+        }
+
+        let benignPrefixes = [
+            "INFO:",
+            "I0000",
+            "W0000"
+        ]
+        if benignPrefixes.contains(where: { message.hasPrefix($0) }) {
+            return true
+        }
+
         let benignFragments = [
             "SymbolDatabase.GetPrototype() is deprecated",
             "Feedback manager requires a model with a single signature inference",
