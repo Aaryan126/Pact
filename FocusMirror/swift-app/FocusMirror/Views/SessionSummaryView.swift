@@ -14,7 +14,7 @@ struct SessionSummaryView: View {
             if let session {
                 VStack(alignment: .leading, spacing: 10) {
                     SummaryHeader(session: session, onBack: onBack)
-                        .frame(height: 56)
+                        .frame(height: 54)
 
                     HStack(spacing: 12) {
                         SummaryStatCard(
@@ -44,22 +44,24 @@ struct SessionSummaryView: View {
                             systemImage: "person.crop.circle"
                         )
                     }
-                    .frame(height: 84)
+                    .frame(height: 82)
 
                     TimelinePanel(session: session)
-                        .frame(height: 66)
+                        .frame(height: 68)
 
                     HStack(alignment: .top, spacing: 12) {
                         BreakdownPanel(session: session)
-                            .frame(width: 315, height: 154)
+                            .frame(width: 315)
+                            .frame(maxHeight: .infinity)
 
                         SegmentReviewPanel(session: session)
-                            .frame(maxWidth: .infinity, minHeight: 154, maxHeight: 154)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
+                    .frame(maxWidth: .infinity, minHeight: 166, maxHeight: .infinity)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
-                .padding(.bottom, 14)
+                .padding(.bottom, 16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(HomeTheme.windowBackground.ignoresSafeArea())
             } else {
@@ -113,7 +115,7 @@ private struct SummaryHeader: View {
             Spacer()
 
             FocusBadge(session: session)
-                .frame(width: 190, height: 52)
+                .frame(width: 260, height: 54)
         }
     }
 }
@@ -130,10 +132,15 @@ private struct FocusBadge: View {
                 Text("Screen Focus")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
                 Text("Before corrections")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(HomeTheme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
+            .layoutPriority(1)
 
             Spacer(minLength: 4)
 
@@ -311,33 +318,33 @@ private struct BreakdownPanel: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 7) {
             Text("Breakdown")
                 .font(.system(size: 14, weight: .semibold))
 
-            VStack(spacing: 4) {
+            VStack(spacing: 0) {
                 ForEach(rows, id: \.state.id) { row in
                     HStack(spacing: 8) {
                         Circle()
                             .fill(row.state.summaryColor)
-                            .frame(width: 9, height: 9)
+                            .frame(width: 8, height: 8)
                         Text(row.state.label)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 11.5, weight: .medium))
                             .lineLimit(1)
                         Spacer()
                         Text("\(row.value.count)x")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 11.5, weight: .medium))
                             .foregroundStyle(HomeTheme.secondaryText)
                             .monospacedDigit()
                             .frame(width: 28, alignment: .trailing)
                         Text(formatMinutes(row.value.seconds))
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 11.5, weight: .medium))
                             .foregroundStyle(HomeTheme.secondaryText)
                             .frame(width: 66, alignment: .trailing)
                             .lineLimit(1)
                             .minimumScaleFactor(0.78)
                     }
-                    .padding(.vertical, 2)
+                    .frame(maxHeight: .infinity, alignment: .center)
                     .overlay(alignment: .bottom) {
                         Rectangle()
                             .fill(Color.white.opacity(0.055))
@@ -346,8 +353,10 @@ private struct BreakdownPanel: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .dashboardCard(tint: Color.white.opacity(0.12), padding: 13)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .dashboardCard(tint: Color.white.opacity(0.12), padding: 12)
     }
 }
 

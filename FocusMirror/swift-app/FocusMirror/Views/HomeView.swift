@@ -80,9 +80,10 @@ struct HomeView: View {
                         .foregroundStyle(.white)
                 }
                 .frame(width: 318, height: 43)
-                .contentShape(RoundedRectangle(cornerRadius: 7))
             }
             .buttonStyle(.plain)
+            .frame(width: 318, height: 43)
+            .contentShape(RoundedRectangle(cornerRadius: 7))
             .clipShape(RoundedRectangle(cornerRadius: 7))
             .padding(.top, 20)
 
