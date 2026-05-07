@@ -74,7 +74,7 @@ struct HomeView: View {
                 }
             } label: {
                 ZStack {
-                    HomeTheme.primaryBlueGradient
+                    HomeTheme.primaryBlue
                     Label("Start", systemImage: "play.fill")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
@@ -152,7 +152,7 @@ private struct SessionLengthSegmentedControl: View {
                 .background {
                     if selection == length {
                         RoundedRectangle(cornerRadius: 7)
-                            .fill(HomeTheme.primaryBlueGradient)
+                            .fill(HomeTheme.primaryBlue)
                             .padding(2)
                     }
                 }
@@ -196,14 +196,6 @@ enum HomeTheme {
     static let border = Color.white.opacity(0.08)
     static let secondaryText = Color.white.opacity(0.62)
     static let primaryBlue = Color(red: 0.02, green: 0.40, blue: 0.98)
-    static let primaryBlueGradient = LinearGradient(
-        colors: [
-            Color(red: 0.03, green: 0.43, blue: 1.0),
-            Color(red: 0.02, green: 0.18, blue: 0.82)
-        ],
-        startPoint: .top,
-        endPoint: .bottom
-    )
     static let segmentBackground = Color.white.opacity(0.045)
     static let segmentDivider = Color.white.opacity(0.16)
 }

@@ -239,7 +239,7 @@ private struct ProgressRing: View {
                 .stroke(HomeTheme.primaryBlue.opacity(0.22), lineWidth: 4)
             Circle()
                 .trim(from: 0, to: clampedProgress)
-                .stroke(HomeTheme.primaryBlueGradient, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .stroke(HomeTheme.primaryBlue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Text(summaryPercent(progress))
                 .font(.system(size: 11, weight: .bold))

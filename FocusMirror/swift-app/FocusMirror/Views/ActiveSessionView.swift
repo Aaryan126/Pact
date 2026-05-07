@@ -5,9 +5,10 @@ struct ActiveSessionView: View {
     let endSession: () -> Void
 
     var body: some View {
-        VStack(spacing: 42) {
+        VStack(spacing: 0) {
             Spacer()
-            VStack(spacing: 18) {
+
+            VStack(spacing: 42) {
                 HStack(spacing: 12) {
                     Circle()
                         .fill(Color.red)
@@ -23,17 +24,17 @@ struct ActiveSessionView: View {
                         .font(.system(size: 110, weight: .medium, design: .rounded))
                         .monospacedDigit()
                 }
-            }
 
-            Button(role: .destructive) {
-                endSession()
-            } label: {
-                Label("End session", systemImage: "stop.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(width: 240, height: 42)
+                Button(role: .destructive) {
+                    endSession()
+                } label: {
+                    Label("End session", systemImage: "stop.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .frame(width: 240, height: 42)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
 
             if let error = model.engineError {
                 Text(error)
@@ -41,7 +42,9 @@ struct ActiveSessionView: View {
                     .font(.callout)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 80)
+                    .padding(.top, 28)
             }
+
             Spacer()
         }
         .padding(64)
