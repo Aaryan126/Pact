@@ -1,7 +1,11 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SessionSummaryView: View {
     @Environment(AppModel.self) private var model
+    @State private var exportErrorMessage: String?
+
     let sessionID: UUID
     let onBack: () -> Void
 
@@ -13,7 +17,11 @@ struct SessionSummaryView: View {
         Group {
             if let session {
                 VStack(alignment: .leading, spacing: 10) {
-                    SummaryHeader(session: session, onBack: onBack)
+                    SummaryHeader(
+                        session: session,
+                        onBack: onBack,
+                        onExport: { exportCSV(for: session) }
+                    )
                         .frame(height: 54)
 
                     HStack(spacing: 12) {
@@ -79,12 +87,53 @@ struct SessionSummaryView: View {
                 .background(HomeTheme.windowBackground.ignoresSafeArea())
             }
         }
+        .alert(
+            "Export failed",
+            isPresented: Binding(
+                get: { exportErrorMessage != nil },
+                set: { if !$0 { exportErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                exportErrorMessage = nil
+            }
+        } message: {
+            Text(exportErrorMessage ?? "Unable to write the CSV file.")
+        }
+    }
+
+    private func exportCSV(for session: FocusSession) {
+        let panel = NSSavePanel()
+        panel.title = "Export Session Summary"
+        panel.prompt = "Export"
+        panel.nameFieldStringValue = defaultExportFilename(for: session)
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let csv = SessionSummaryCSVExporter.csv(for: session)
+            try csv.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            exportErrorMessage = "Could not export session CSV: \(error.localizedDescription)"
+        }
+    }
+
+    private func defaultExportFilename(for session: FocusSession) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
+        return "FocusMirror Session \(formatter.string(from: session.startTime)).csv"
     }
 }
 
 private struct SummaryHeader: View {
     let session: FocusSession
     let onBack: () -> Void
+    let onExport: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -113,6 +162,26 @@ private struct SummaryHeader: View {
             }
 
             Spacer()
+
+            Button(action: onExport) {
+                HStack(spacing: 7) {
+                    Image(systemName: "square.and.arrow.down")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Export CSV")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .frame(height: 36)
+                .padding(.horizontal, 12)
+                .background(Color.white.opacity(0.055))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
+            .help("Export session summary as CSV")
 
             FocusBadge(session: session)
                 .frame(width: 260, height: 54)
@@ -460,6 +529,235 @@ private struct SummaryPalette {
     static let blue = Color(red: 0.12, green: 0.38, blue: 0.92)
     static let purple = Color(red: 0.58, green: 0.25, blue: 0.95)
     static let gray = Color(red: 0.42, green: 0.49, blue: 0.55)
+}
+
+private enum SessionSummaryCSVExporter {
+    private static let headers = [
+        "Section",
+        "Item",
+        "Start Timestamp",
+        "End Timestamp",
+        "Start Offset",
+        "End Offset",
+        "Duration",
+        "Seconds",
+        "Percent Of Session",
+        "State",
+        "Effective State",
+        "Count",
+        "Confidence",
+        "Correction",
+        "Counts As Confirmed Work",
+        "Notes"
+    ]
+
+    static func csv(for session: FocusSession) -> String {
+        let totalDuration = session.duration
+        let rows = allRows(for: session, totalDuration: totalDuration)
+        return ([headers] + rows)
+            .map(csvLine)
+            .joined(separator: "\n") + "\n"
+    }
+
+    private static func allRows(for session: FocusSession, totalDuration: TimeInterval) -> [[String]] {
+        var rows: [[String]] = []
+
+        rows.append(row(section: "Session", item: "Session ID", notes: session.id.uuidString))
+        rows.append(row(section: "Session", item: "Started", startTimestamp: timestamp(session.startTime)))
+        rows.append(row(section: "Session", item: "Ended", endTimestamp: timestamp(session.endTime)))
+        rows.append(row(
+            section: "Session",
+            item: "Target Duration",
+            duration: session.targetDurationSeconds,
+            seconds: session.targetDurationSeconds,
+            notes: session.targetDurationSeconds == nil ? "Open-ended session" : ""
+        ))
+
+        rows.append(row(
+            section: "Focus Summary",
+            item: "Total Session Time",
+            startTimestamp: timestamp(session.startTime),
+            endTimestamp: timestamp(session.endTime),
+            startOffset: formatClock(0),
+            endOffset: formatClock(totalDuration),
+            duration: totalDuration,
+            seconds: totalDuration,
+            percent: totalDuration > 0 ? 1 : 0
+        ))
+        rows.append(row(
+            section: "Focus Summary",
+            item: "Screen Focused",
+            duration: session.screenFocusedSeconds,
+            seconds: session.screenFocusedSeconds,
+            percent: ratio(session.screenFocusedSeconds, of: totalDuration),
+            state: DetectionState.focused.label,
+            notes: "Raw screen-facing focus before corrections"
+        ))
+        rows.append(row(
+            section: "Focus Summary",
+            item: "Confirmed Work",
+            duration: session.confirmedWorkSeconds,
+            seconds: session.confirmedWorkSeconds,
+            percent: ratio(session.confirmedWorkSeconds, of: totalDuration),
+            confirmedWork: true,
+            notes: "Screen focused plus user-corrected focused segments"
+        ))
+        rows.append(row(
+            section: "Focus Summary",
+            item: "Corrected Focus",
+            duration: session.correctedSeconds,
+            seconds: session.correctedSeconds,
+            percent: ratio(session.correctedSeconds, of: totalDuration),
+            correction: SegmentCorrection.actuallyFocused.label,
+            confirmedWork: true,
+            notes: "Time added by user corrections"
+        ))
+        rows.append(row(
+            section: "Focus Summary",
+            item: "Reviewable",
+            duration: session.reviewSeconds,
+            seconds: session.reviewSeconds,
+            percent: ratio(session.reviewSeconds, of: totalDuration),
+            notes: "Head down or uncertain time"
+        ))
+
+        let detectedBreakdown = session.breakdown()
+        for state in DetectionState.allCases {
+            let value = detectedBreakdown[state] ?? (0, 0)
+            rows.append(row(
+                section: "Detected Breakdown",
+                item: state.label,
+                duration: value.seconds,
+                seconds: value.seconds,
+                percent: ratio(value.seconds, of: totalDuration),
+                state: state.label,
+                count: value.count,
+                confirmedWork: state.countsAsFocused,
+                notes: "Original classified state"
+            ))
+        }
+
+        let adjustedBreakdown = effectiveBreakdown(for: session)
+        for state in DetectionState.allCases {
+            let value = adjustedBreakdown[state] ?? (0, 0)
+            rows.append(row(
+                section: "Correction-Adjusted Breakdown",
+                item: state.label,
+                duration: value.seconds,
+                seconds: value.seconds,
+                percent: ratio(value.seconds, of: totalDuration),
+                effectiveState: state.label,
+                count: value.count,
+                confirmedWork: state.countsAsFocused,
+                notes: "After user corrections"
+            ))
+        }
+
+        for (index, segment) in session.segments.sorted(by: { $0.startSeconds < $1.startSeconds }).enumerated() {
+            rows.append(row(
+                section: "Segments",
+                item: "Segment \(index + 1)",
+                startTimestamp: timestamp(session.startTime.addingTimeInterval(segment.startSeconds)),
+                endTimestamp: timestamp(session.startTime.addingTimeInterval(segment.endSeconds)),
+                startOffset: formatClock(segment.startSeconds),
+                endOffset: formatClock(segment.endSeconds),
+                duration: segment.duration,
+                seconds: segment.duration,
+                percent: ratio(segment.duration, of: totalDuration),
+                state: segment.state.label,
+                effectiveState: segment.effectiveState.label,
+                confidence: segment.confidence,
+                correction: segment.userCorrection?.label ?? "",
+                confirmedWork: segment.countsAsConfirmedWork,
+                notes: segment.userCorrection == nil ? "" : "User correction applied"
+            ))
+        }
+
+        return rows
+    }
+
+    private static func effectiveBreakdown(for session: FocusSession) -> [DetectionState: (count: Int, seconds: TimeInterval)] {
+        var result: [DetectionState: (count: Int, seconds: TimeInterval)] = [:]
+        for state in DetectionState.allCases {
+            result[state] = (0, 0)
+        }
+        for segment in session.segments {
+            let state = segment.effectiveState
+            let current = result[state] ?? (0, 0)
+            result[state] = (current.count + 1, current.seconds + segment.duration)
+        }
+        return result
+    }
+
+    private static func row(
+        section: String,
+        item: String,
+        startTimestamp: String = "",
+        endTimestamp: String = "",
+        startOffset: String = "",
+        endOffset: String = "",
+        duration: TimeInterval? = nil,
+        seconds: TimeInterval? = nil,
+        percent: Double? = nil,
+        state: String = "",
+        effectiveState: String = "",
+        count: Int? = nil,
+        confidence: Double? = nil,
+        correction: String = "",
+        confirmedWork: Bool? = nil,
+        notes: String = ""
+    ) -> [String] {
+        [
+            section,
+            item,
+            startTimestamp,
+            endTimestamp,
+            startOffset,
+            endOffset,
+            duration.map(formatClock) ?? "",
+            seconds.map(roundedSeconds) ?? "",
+            percent.map(percentString) ?? "",
+            state,
+            effectiveState,
+            count.map(String.init) ?? "",
+            confidence.map(percentString) ?? "",
+            correction,
+            confirmedWork.map { $0 ? "Yes" : "No" } ?? "",
+            notes
+        ]
+    }
+
+    private static func csvLine(_ fields: [String]) -> String {
+        fields.map(csvField).joined(separator: ",")
+    }
+
+    private static func csvField(_ value: String) -> String {
+        guard value.contains(",") || value.contains("\"") || value.contains("\n") else {
+            return value
+        }
+        return "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+    }
+
+    private static func ratio(_ seconds: TimeInterval, of total: TimeInterval) -> Double {
+        guard total > 0 else { return 0 }
+        return seconds / total
+    }
+
+    private static func roundedSeconds(_ seconds: TimeInterval) -> String {
+        String(Int(seconds.rounded()))
+    }
+
+    private static func percentString(_ value: Double) -> String {
+        String(format: "%.1f%%", locale: Locale(identifier: "en_US_POSIX"), value * 100)
+    }
+
+    private static func timestamp(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZZ"
+        return formatter.string(from: date)
+    }
 }
 
 private extension DetectionState {
