@@ -164,23 +164,21 @@ private struct SummaryHeader: View {
             Spacer()
 
             Button(action: onExport) {
-                HStack(spacing: 7) {
-                    Image(systemName: "square.and.arrow.down")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text("Export CSV")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .frame(height: 36)
-                .padding(.horizontal, 12)
-                .background(Color.white.opacity(0.055))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                }
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 20, weight: .semibold))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(RoundedRectangle(cornerRadius: 8))
             }
             .buttonStyle(.plain)
             .foregroundStyle(.white)
+            .frame(width: 54, height: 54)
+            .background(Color.white.opacity(0.055))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            }
+            .accessibilityLabel("Export CSV")
             .help("Export session summary as CSV")
 
             FocusBadge(session: session)
@@ -242,7 +240,7 @@ private struct ProgressRing: View {
                 .stroke(HomeTheme.primaryBlue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Text(summaryPercent(progress))
-                .font(.system(size: 11, weight: .bold))
+                .font(.system(size: 8.5, weight: .bold))
                 .foregroundStyle(HomeTheme.primaryBlue)
         }
         .padding(2)
@@ -261,19 +259,19 @@ private struct SummaryStatCard: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(accent.opacity(0.18))
+                    .fill(Color.white.opacity(0.055))
                 Circle()
-                    .stroke(accent.opacity(0.45), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
                 Image(systemName: systemImage)
-                    .font(.system(size: 23, weight: .semibold))
-                    .foregroundStyle(accent)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(accent.opacity(0.78))
             }
-            .frame(width: 42, height: 42)
+            .frame(width: 38, height: 38)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.system(size: 11.5, weight: .bold))
-                    .foregroundStyle(accent)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(HomeTheme.secondaryText)
                     .textCase(.uppercase)
 
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
@@ -301,7 +299,7 @@ private struct SummaryStatCard: View {
 
             Spacer(minLength: 0)
         }
-        .dashboardCard(tint: accent)
+        .summaryMetricCard(accent: accent)
     }
 }
 
@@ -468,10 +466,6 @@ private struct SegmentReviewPanel: View {
         let isAlreadyFocused = segment.state == .focused || segment.userCorrection == .actuallyFocused
 
         return HStack(spacing: 11) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(segment.effectiveState.summaryColor)
-                .frame(width: 5, height: 40)
-
             VStack(alignment: .leading, spacing: 6) {
                 Text("\(formatClock(segment.startSeconds))-\(formatClock(segment.endSeconds))")
                     .font(.system(size: 14, weight: .semibold))
@@ -774,6 +768,28 @@ private extension DetectionState {
 }
 
 private extension View {
+    func summaryMetricCard(accent: Color, padding: CGFloat = 14) -> some View {
+        self
+            .padding(padding)
+            .padding(.leading, 4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background {
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.070),
+                        Color.white.opacity(0.035)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            }
+    }
+
     func dashboardCard(tint: Color, padding: CGFloat = 14) -> some View {
         self
             .padding(padding)
