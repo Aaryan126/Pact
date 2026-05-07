@@ -20,9 +20,23 @@ struct ActiveSessionView: View {
 
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let elapsed = context.date.timeIntervalSince(model.activeSessionStartedAt ?? context.date)
-                    Text(formatClock(elapsed))
-                        .font(.system(size: 110, weight: .medium, design: .rounded))
-                        .monospacedDigit()
+                    VStack(spacing: 10) {
+                        Text(formatClock(elapsed))
+                            .font(.system(size: 110, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+
+                        if let target = model.activeTargetDurationSeconds {
+                            let remaining = max(0, target - elapsed)
+                            Text("\(formatClock(remaining)) remaining of \(formatClock(target))")
+                                .font(.system(size: 19, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        } else {
+                            Text("Open-ended session")
+                                .font(.system(size: 19, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 Button(role: .destructive) {

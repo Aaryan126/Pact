@@ -156,9 +156,11 @@ private struct SummaryHeader: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Session Summary")
                     .font(.system(size: 19, weight: .semibold))
-                Text(session.startTime.formatted(date: .abbreviated, time: .shortened))
+                Text(sessionCompletionDetail(session))
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(HomeTheme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
 
             Spacer()
@@ -184,6 +186,28 @@ private struct SummaryHeader: View {
             FocusBadge(session: session)
                 .frame(width: 260, height: 54)
         }
+    }
+}
+
+private func sessionCompletionDetail(_ session: FocusSession) -> String {
+    let timestamp = session.startTime.formatted(date: .abbreviated, time: .shortened)
+    if session.completionReason == .targetCompleted, let target = session.targetDurationSeconds {
+        return "Completed \(formatMinutes(target)) target · \(timestamp)"
+    }
+    if session.completionReason == .manual {
+        return "Ended manually · \(timestamp)"
+    }
+    return timestamp
+}
+
+private func sessionCompletionReasonLabel(_ session: FocusSession) -> String {
+    switch session.completionReason {
+    case .targetCompleted:
+        return "Target completed"
+    case .manual:
+        return "Ended manually"
+    case .none:
+        return "Unknown"
     }
 }
 
@@ -565,6 +589,11 @@ private enum SessionSummaryCSVExporter {
             duration: session.targetDurationSeconds,
             seconds: session.targetDurationSeconds,
             notes: session.targetDurationSeconds == nil ? "Open-ended session" : ""
+        ))
+        rows.append(row(
+            section: "Session",
+            item: "Completion Reason",
+            notes: sessionCompletionReasonLabel(session)
         ))
 
         rows.append(row(

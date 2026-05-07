@@ -19,6 +19,7 @@ These are non-negotiable for v1. If you can't ship them, don't ship.
 
 - Session records: start/end timestamps, state segments with timestamps, user corrections.
 - App preferences.
+- CSV exports only when the user explicitly chooses an export destination.
 
 That's it. No video, no images, no audio, no biometric templates.
 
@@ -35,7 +36,8 @@ Use `NSCameraUsageDescription` in `Info.plist` with this exact string or close t
 The app should be sandboxed. The required entitlements:
 - `com.apple.security.device.camera` — for webcam access
 - `com.apple.security.app-sandbox` — sandbox enabled
-- File access only to the app's container (Application Support directory)
+- `com.apple.security.files.user-selected.read-write` — only for user-initiated CSV export destinations
+- App-owned session data stays in the app's Application Support directory
 
 Specifically **not** included:
 - `com.apple.security.network.client` — no outbound network during sessions

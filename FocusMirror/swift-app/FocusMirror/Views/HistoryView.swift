@@ -3,11 +3,30 @@ import SwiftUI
 struct HistoryView: View {
     @Environment(AppModel.self) private var model
     let openSession: (UUID) -> Void
+    @State private var isConfirmingDeleteAll = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("History")
-                .font(.system(size: 23, weight: .semibold))
+            HStack {
+                Text("History")
+                    .font(.system(size: 23, weight: .semibold))
+
+                Spacer()
+
+                if !model.sessions.isEmpty {
+                    Button(role: .destructive) {
+                        isConfirmingDeleteAll = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(width: 30, height: 30)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(HomeTheme.secondaryText)
+                    .help("Delete all local session history")
+                }
+            }
+            .frame(width: 334)
 
             if model.sessions.isEmpty {
                 Text("Past sessions will appear here.")
@@ -30,6 +49,14 @@ struct HistoryView: View {
         .padding(.top, 28)
         .padding(.bottom, 28)
         .frame(maxHeight: .infinity, alignment: .topLeading)
+        .alert("Delete all session history?", isPresented: $isConfirmingDeleteAll) {
+            Button("Delete", role: .destructive) {
+                model.deleteAllSessions()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes local FocusMirror session records from this Mac.")
+        }
     }
 
     private func historyRow(for session: FocusSession) -> some View {

@@ -21,6 +21,7 @@
 		8A000001000000000000000C /* ActiveSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A000001000000000000010C /* ActiveSessionView.swift */; };
 		8A000001000000000000000D /* SessionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A000001000000000000010D /* SessionSummaryView.swift */; };
 		8A000001000000000000000E /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A000001000000000000010E /* Formatters.swift */; };
+		8A000001000000000000000F /* SessionCompletionNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000112 /* SessionCompletionNotifier.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 		8A000001000000000000010F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8A0000010000000000000110 /* FocusMirror.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FocusMirror.entitlements; sourceTree = "<group>"; };
 		8A0000010000000000000111 /* FocusMirror.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FocusMirror.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8A0000010000000000000112 /* SessionCompletionNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCompletionNotifier.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -81,6 +83,7 @@
 				8A0000010000000000000105 /* SessionStore.swift */,
 				8A0000010000000000000106 /* CameraPermission.swift */,
 				8A0000010000000000000107 /* PythonEngineProcess.swift */,
+				8A0000010000000000000112 /* SessionCompletionNotifier.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -188,6 +191,7 @@
 				8A000001000000000000000C /* ActiveSessionView.swift in Sources */,
 				8A000001000000000000000D /* SessionSummaryView.swift in Sources */,
 				8A000001000000000000000E /* Formatters.swift in Sources */,
+				8A000001000000000000000F /* SessionCompletionNotifier.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -13,6 +13,11 @@ let package = Package(
             path: "FocusMirror",
             exclude: ["Info.plist", "FocusMirror.entitlements"],
             resources: [.process("Resources")]
+        ),
+        .testTarget(
+            name: "FocusMirrorTests",
+            dependencies: ["FocusMirror"],
+            path: "Tests/FocusMirrorTests"
         )
     ]
 )

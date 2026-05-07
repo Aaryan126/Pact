@@ -1,15 +1,32 @@
 import Foundation
 
 @MainActor
-final class PythonEngineProcess {
+protocol EngineProcessControlling: AnyObject {
+    var onEvent: ((EngineEvent) -> Void)? { get set }
+    var onError: ((String) -> Void)? { get set }
+    var onTermination: ((EngineProcessTermination) -> Void)? { get set }
+
+    func start(fps: Int) throws
+    func stop()
+}
+
+struct EngineProcessTermination: Equatable {
+    let status: Int32
+    let reason: String
+}
+
+@MainActor
+final class PythonEngineProcess: EngineProcessControlling {
     var onEvent: ((EngineEvent) -> Void)?
     var onError: ((String) -> Void)?
+    var onTermination: ((EngineProcessTermination) -> Void)?
 
     private var process: Process?
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
     private var stdoutBuffer = Data()
     private var stderrBuffer = Data()
+    private var expectedTermination = false
     private let decoder = JSONDecoder()
 
     var isRunning: Bool {
@@ -18,10 +35,11 @@ final class PythonEngineProcess {
 
     func start(fps: Int = 5) throws {
         guard process == nil else { return }
+        expectedTermination = false
         guard let engineRoot = Self.findEngineRoot() else {
             throw EngineProcessError.engineNotFound
         }
-        let pythonExecutable = Self.findPythonExecutable(engineRoot: engineRoot)
+        let pythonExecutable = try Self.findPythonExecutable(engineRoot: engineRoot)
 
         let process = Process()
         let stdoutPipe = Pipe()
@@ -60,24 +78,46 @@ final class PythonEngineProcess {
                 self?.consumeStderr(data)
             }
         }
-        process.terminationHandler = { [weak self] _ in
+        process.terminationHandler = { [weak self] terminatedProcess in
+            let status = terminatedProcess.terminationStatus
+            let reason = terminatedProcess.terminationReason == .exit ? "exited" : "terminated"
             Task { @MainActor in
+                let wasExpected = self?.expectedTermination ?? true
                 self?.stdoutPipe?.fileHandleForReading.readabilityHandler = nil
                 self?.stderrPipe?.fileHandleForReading.readabilityHandler = nil
                 self?.process = nil
                 self?.stdoutPipe = nil
                 self?.stderrPipe = nil
+                self?.stdoutBuffer.removeAll()
                 self?.stderrBuffer.removeAll()
+                self?.expectedTermination = false
+
+                if !wasExpected {
+                    self?.onTermination?(EngineProcessTermination(status: status, reason: reason))
+                }
             }
         }
 
         self.process = process
         self.stdoutPipe = stdoutPipe
         self.stderrPipe = stderrPipe
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            stdoutPipe.fileHandleForReading.readabilityHandler = nil
+            stderrPipe.fileHandleForReading.readabilityHandler = nil
+            self.process = nil
+            self.stdoutPipe = nil
+            self.stderrPipe = nil
+            stdoutBuffer.removeAll()
+            stderrBuffer.removeAll()
+            expectedTermination = false
+            throw error
+        }
     }
 
     func stop() {
+        expectedTermination = true
         stdoutPipe?.fileHandleForReading.readabilityHandler = nil
         stderrPipe?.fileHandleForReading.readabilityHandler = nil
         if process?.isRunning == true {
@@ -118,6 +158,13 @@ final class PythonEngineProcess {
         guard let message = String(data: data, encoding: .utf8) else { return }
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !Self.isBenignEngineStderr(trimmed) else { return }
+
+        if let payload = try? decoder.decode(EngineErrorPayload.self, from: data),
+           payload.type == "error" {
+            onError?(payload.message)
+            return
+        }
+
         onError?(trimmed)
     }
 
@@ -196,38 +243,61 @@ final class PythonEngineProcess {
         FileManager.default.fileExists(atPath: url.appendingPathComponent("focusmirror_engine/main.py").path)
     }
 
-    private static func findPythonExecutable(engineRoot: URL) -> URL {
+    private static func findPythonExecutable(engineRoot: URL) throws -> URL {
         if let bundledPython = findBundledPython() {
             return bundledPython
         }
 
+        #if DEBUG
         let candidates = [
             engineRoot.appendingPathComponent(".venv39/bin/python"),
             engineRoot.appendingPathComponent(".venv/bin/python"),
             engineRoot.appendingPathComponent("venv/bin/python")
         ]
 
-        return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
-            ?? URL(fileURLWithPath: "/usr/bin/env")
+        if let localPython = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) {
+            return localPython
+        }
+
+        if ProcessInfo.processInfo.environment["FOCUSMIRROR_ALLOW_SYSTEM_PYTHON"] == "1" {
+            return URL(fileURLWithPath: "/usr/bin/env")
+        }
+        #endif
+
+        throw EngineProcessError.pythonRuntimeNotFound
     }
 
     private static func findBundledPython() -> URL? {
-        guard let resourceURL = Bundle.main.resourceURL else { return nil }
-        let candidates = [
-            resourceURL.appendingPathComponent("python-runtime/bin/python3"),
-            resourceURL.appendingPathComponent("python-runtime/bin/python")
-        ]
+        let roots = [
+            Bundle.main.privateFrameworksURL,
+            Bundle.main.resourceURL
+        ].compactMap { $0 }
+
+        let candidates = roots.flatMap { root in
+            [
+                root.appendingPathComponent("python-runtime/bin/python3"),
+                root.appendingPathComponent("python-runtime/bin/python")
+            ]
+        }
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 }
 
 enum EngineProcessError: LocalizedError {
     case engineNotFound
+    case pythonRuntimeNotFound
 
     var errorDescription: String? {
         switch self {
         case .engineNotFound:
             "Could not find bundled python-engine directory."
+        case .pythonRuntimeNotFound:
+            "Could not find the bundled Python runtime. Rebuild the app with FOCUSMIRROR_VENDOR_PYTHON=1 for release."
         }
     }
+}
+
+private struct EngineErrorPayload: Decodable {
+    let type: String
+    let message: String
 }

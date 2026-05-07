@@ -145,7 +145,7 @@ private struct MenuBarControlView: View {
                         .monospacedDigit()
                         .foregroundStyle(.white)
 
-                    Text("Processing locally. No recording.")
+                    Text(activeSessionDetail(elapsed: elapsed))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(HomeTheme.secondaryText)
                 }
@@ -162,6 +162,13 @@ private struct MenuBarControlView: View {
             .controlSize(.regular)
             .tint(Color(red: 0.84, green: 0.12, blue: 0.16))
         }
+    }
+
+    private func activeSessionDetail(elapsed: TimeInterval) -> String {
+        guard let target = model.activeTargetDurationSeconds else {
+            return "Open-ended. Processing locally."
+        }
+        return "\(formatClock(max(0, target - elapsed))) remaining. No recording."
     }
 
     private func completedSessionSummary(_ session: FocusSession) -> some View {

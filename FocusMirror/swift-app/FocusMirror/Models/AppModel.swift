@@ -4,12 +4,17 @@ import Observation
 @MainActor
 @Observable
 final class AppModel {
-    private let store: SessionStore
-    private let engine: PythonEngineProcess
+    private let store: any SessionStoring
+    private let engine: any EngineProcessControlling
+    private let completionNotifier: any SessionCompletionNotifying
+    private let engineStallTimeout: TimeInterval
     private var activeStartTime: Date?
     private var activeTargetDuration: TimeInterval?
     private var activeSegments: [StateSegment] = []
     private var lastEventElapsed: TimeInterval = 0
+    private var lastEngineEventReceivedAt: Date?
+    private var targetCompletionTask: Task<Void, Never>?
+    private var engineWatchdogTask: Task<Void, Never>?
 
     var sessions: [FocusSession] = []
     var activeSessionStartedAt: Date?
@@ -17,14 +22,30 @@ final class AppModel {
     var latestCompletedSession: FocusSession?
     var engineError: String?
 
-    init(store: SessionStore = SessionStore(), engine: PythonEngineProcess = PythonEngineProcess()) {
+    init(
+        store: any SessionStoring = SessionStore(),
+        engine: any EngineProcessControlling = PythonEngineProcess(),
+        completionNotifier: any SessionCompletionNotifying = UserNotificationSessionCompletionNotifier(),
+        engineStallTimeout: TimeInterval = 30
+    ) {
         self.store = store
         self.engine = engine
-        self.sessions = store.loadSessions()
+        self.completionNotifier = completionNotifier
+        self.engineStallTimeout = engineStallTimeout
+        do {
+            self.sessions = try store.loadSessions()
+        } catch {
+            self.sessions = []
+            self.engineError = error.localizedDescription
+        }
     }
 
     var isSessionActive: Bool {
         activeSessionStartedAt != nil
+    }
+
+    var activeTargetDurationSeconds: TimeInterval? {
+        activeTargetDuration
     }
 
     func startSession() {
@@ -37,6 +58,7 @@ final class AppModel {
         activeTargetDuration = selectedLength.seconds
         activeSegments = []
         lastEventElapsed = 0
+        lastEngineEventReceivedAt = nil
 
         engine.onEvent = { [weak self] event in
             Task { @MainActor in
@@ -45,53 +67,100 @@ final class AppModel {
         }
         engine.onError = { [weak self] message in
             Task { @MainActor in
-                self?.engineError = message
+                self?.handleEngineError(message)
+            }
+        }
+        engine.onTermination = { [weak self] termination in
+            Task { @MainActor in
+                self?.handleUnexpectedEngineTermination(termination)
             }
         }
         do {
-            try engine.start()
+            try engine.start(fps: 5)
+            scheduleTargetCompletion(startedAt: now, targetDuration: activeTargetDuration)
+            startEngineWatchdog(startedAt: now)
         } catch {
             engineError = error.localizedDescription
-            activeStartTime = nil
-            activeSessionStartedAt = nil
-            activeTargetDuration = nil
-            activeSegments = []
-            lastEventElapsed = 0
+            resetActiveState()
         }
     }
 
     func endSession() {
-        guard let start = activeStartTime else { return }
-        engine.stop()
-        let end = Date()
-        if !activeSegments.isEmpty {
-            activeSegments[activeSegments.count - 1].endSeconds = max(lastEventElapsed, end.timeIntervalSince(start))
+        finishSession(reason: .manual)
+    }
+
+    func deleteAllSessions() {
+        do {
+            try store.deleteAll()
+            sessions = []
+            latestCompletedSession = nil
+            engineError = nil
+        } catch {
+            engineError = error.localizedDescription
         }
+    }
+
+    private func finishSession(reason: SessionCompletionReason) {
+        guard let start = activeStartTime else { return }
+        cancelActiveTasks()
+        engine.stop()
+
+        let targetDuration = activeTargetDuration
+        let end: Date
+        let finalElapsed: TimeInterval
+        if reason == .targetCompleted, let targetDuration {
+            end = start.addingTimeInterval(targetDuration)
+            finalElapsed = targetDuration
+        } else {
+            end = Date()
+            finalElapsed = max(0, end.timeIntervalSince(start))
+        }
+
+        if !activeSegments.isEmpty {
+            activeSegments[activeSegments.count - 1].endSeconds = max(
+                activeSegments[activeSegments.count - 1].endSeconds,
+                lastEventElapsed,
+                finalElapsed
+            )
+        }
+
         let session = FocusSession(
             startTime: start,
             endTime: end,
-            targetDurationSeconds: activeTargetDuration,
-            segments: activeSegments
+            targetDurationSeconds: targetDuration,
+            completionReason: reason,
+            segments: normalizedActiveSegments(upTo: finalElapsed)
         )
-        store.save(session: session)
-        sessions = store.loadSessions()
+
+        do {
+            try store.save(session: session)
+            sessions = try store.loadSessions()
+            engineError = nil
+        } catch {
+            engineError = "Session completed, but FocusMirror could not save it: \(error.localizedDescription)"
+        }
+
         latestCompletedSession = session
-        activeStartTime = nil
-        activeSessionStartedAt = nil
-        activeTargetDuration = nil
-        activeSegments = []
-        lastEventElapsed = 0
-        engineError = nil
+        resetActiveState()
+
+        if reason == .targetCompleted {
+            completionNotifier.notifySessionCompleted(targetDuration: targetDuration)
+        }
     }
 
     func update(segmentID: UUID, in sessionID: UUID, correction: SegmentCorrection?) {
         guard var session = sessions.first(where: { $0.id == sessionID }) else { return }
         guard let segmentIndex = session.segments.firstIndex(where: { $0.id == segmentID }) else { return }
         session.segments[segmentIndex].userCorrection = correction
-        store.save(session: session)
-        sessions = store.loadSessions()
-        if latestCompletedSession?.id == sessionID {
-            latestCompletedSession = session
+        do {
+            try store.save(session: session)
+            sessions = try store.loadSessions()
+            engineError = nil
+            if latestCompletedSession?.id == sessionID {
+                latestCompletedSession = session
+            }
+        } catch {
+            engineError = "Could not save correction: \(error.localizedDescription)"
         }
     }
 
@@ -101,9 +170,10 @@ final class AppModel {
 
     private func consume(_ event: EngineEvent) {
         guard event.type == "classification", activeSessionStartedAt != nil else { return }
+        lastEngineEventReceivedAt = Date()
         lastEventElapsed = max(lastEventElapsed, event.elapsedSeconds)
         if let target = activeTargetDuration, event.elapsedSeconds >= target {
-            endSession()
+            finishSession(reason: .targetCompleted)
             return
         }
 
@@ -133,6 +203,88 @@ final class AppModel {
                     confidence: event.confidence
                 )
             )
+        }
+    }
+
+    private func scheduleTargetCompletion(startedAt start: Date, targetDuration: TimeInterval?) {
+        guard let targetDuration else { return }
+        let nanoseconds = UInt64(max(0, targetDuration) * 1_000_000_000)
+        targetCompletionTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: nanoseconds)
+            guard !Task.isCancelled else { return }
+            guard self?.activeStartTime == start else { return }
+            self?.finishSession(reason: .targetCompleted)
+        }
+    }
+
+    private func startEngineWatchdog(startedAt start: Date) {
+        engineWatchdogTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                guard !Task.isCancelled else { return }
+                guard let self, self.activeStartTime == start else { return }
+
+                let lastHeartbeat = self.lastEngineEventReceivedAt ?? start
+                if Date().timeIntervalSince(lastHeartbeat) >= self.engineStallTimeout {
+                    self.abortActiveSession(
+                        message: "FocusMirror stopped the session because the detection engine stopped sending classifications. Please restart the session."
+                    )
+                    return
+                }
+            }
+        }
+    }
+
+    private func handleEngineError(_ message: String) {
+        let displayMessage = "FocusMirror stopped the session because the detection engine failed: \(message)"
+        if isSessionActive {
+            abortActiveSession(message: displayMessage)
+        } else {
+            engineError = displayMessage
+        }
+    }
+
+    private func handleUnexpectedEngineTermination(_ termination: EngineProcessTermination) {
+        guard isSessionActive else { return }
+        abortActiveSession(
+            message: "FocusMirror stopped the session because the detection engine \(termination.reason) unexpectedly with status \(termination.status). Please restart the session."
+        )
+    }
+
+    private func abortActiveSession(message: String) {
+        cancelActiveTasks()
+        engine.stop()
+        resetActiveState()
+        latestCompletedSession = nil
+        engineError = message
+    }
+
+    private func cancelActiveTasks() {
+        targetCompletionTask?.cancel()
+        targetCompletionTask = nil
+        engineWatchdogTask?.cancel()
+        engineWatchdogTask = nil
+    }
+
+    private func resetActiveState() {
+        activeStartTime = nil
+        activeSessionStartedAt = nil
+        activeTargetDuration = nil
+        activeSegments = []
+        lastEventElapsed = 0
+        lastEngineEventReceivedAt = nil
+    }
+
+    private func normalizedActiveSegments(upTo finalElapsed: TimeInterval) -> [StateSegment] {
+        activeSegments.compactMap { segment in
+            let start = min(max(0, segment.startSeconds), finalElapsed)
+            let end = min(max(start, segment.endSeconds), finalElapsed)
+            guard end > start else { return nil }
+
+            var normalized = segment
+            normalized.startSeconds = start
+            normalized.endSeconds = end
+            return normalized
         }
     }
 }

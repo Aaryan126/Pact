@@ -40,6 +40,11 @@ struct StateSegment: Codable, Identifiable, Equatable {
     }
 }
 
+enum SessionCompletionReason: String, Codable, Equatable {
+    case manual
+    case targetCompleted = "target_completed"
+}
+
 enum SegmentCorrection: String, Codable, CaseIterable, Identifiable {
     case actuallyFocused = "actually_focused"
 
@@ -57,6 +62,7 @@ struct FocusSession: Codable, Identifiable, Equatable {
     var startTime: Date
     var endTime: Date
     var targetDurationSeconds: TimeInterval?
+    var completionReason: SessionCompletionReason?
     var segments: [StateSegment]
 
     init(
@@ -64,12 +70,14 @@ struct FocusSession: Codable, Identifiable, Equatable {
         startTime: Date,
         endTime: Date,
         targetDurationSeconds: TimeInterval?,
+        completionReason: SessionCompletionReason? = nil,
         segments: [StateSegment]
     ) {
         self.id = id
         self.startTime = startTime
         self.endTime = endTime
         self.targetDurationSeconds = targetDurationSeconds
+        self.completionReason = completionReason
         self.segments = segments
     }
 
@@ -156,7 +164,7 @@ enum SessionLength: Hashable, CaseIterable, Identifiable {
     case minutes(Int)
 
     static var allCases: [SessionLength] {
-        [.openEnded, .minutes(25), .minutes(50), .minutes(60)]
+        [.openEnded, .minutes(25), .minutes(30), .minutes(50), .minutes(60)]
     }
 
     var id: String {

@@ -17,9 +17,6 @@ struct ContentView: View {
             } else if model.isSessionActive {
                 ActiveSessionView {
                     model.endSession()
-                    if let completed = model.latestCompletedSession {
-                        selectedSessionID = completed.id
-                    }
                 }
             } else if let selectedSessionID {
                 SessionSummaryView(sessionID: selectedSessionID) {
@@ -33,5 +30,15 @@ struct ContentView: View {
         }
         .background(HomeTheme.windowBackground.ignoresSafeArea())
         .preferredColorScheme(.dark)
+        .onChange(of: model.isSessionActive) { _, isActive in
+            if isActive {
+                selectedSessionID = nil
+            }
+        }
+        .onChange(of: model.latestCompletedSession?.id) { _, sessionID in
+            if let sessionID {
+                selectedSessionID = sessionID
+            }
+        }
     }
 }

@@ -32,8 +32,8 @@ swift build --package-path swift-app
 ./build/bundle.sh
 ```
 
-Set `FOCUSMIRROR_VENDOR_PYTHON=1` to create a bundled virtualenv and install the Python engine into `Contents/Resources/python-runtime`. Without that flag, the app uses `/usr/bin/env python3` and expects dependencies to be available in the environment.
+Set `FOCUSMIRROR_VENDOR_PYTHON=1` to create a bundled Python runtime under `Contents/Frameworks/python-runtime` and install the Python engine into it. Release builds do not fall back to system Python at runtime.
 
 ## Privacy Defaults
 
-The v1 entitlements include sandboxing and camera access only. There is no network client entitlement, no audio permission, no analytics, and no frame storage.
+The v1 entitlements include sandboxing, camera access, and user-selected file access for explicit CSV export only. There is no network client entitlement, no audio permission, no analytics, and no frame storage.

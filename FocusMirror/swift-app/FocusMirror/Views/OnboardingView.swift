@@ -20,6 +20,7 @@ struct OnboardingView: View {
                 PrivacyFactRow(title: "No network during sessions", detail: "The app has no network entitlement in the v1 bundle.")
                 PrivacyFactRow(title: "No audio", detail: "FocusMirror does not request microphone access.")
                 PrivacyFactRow(title: "Stored locally", detail: "Only timestamps, detected states, and your corrections are saved.")
+                PrivacyFactRow(title: "User-controlled export", detail: "CSV files are written only when you choose an export destination.")
             }
             .padding(.vertical, 8)
 
