@@ -30,6 +30,7 @@ final class AppModel {
     func startSession() {
         guard activeSessionStartedAt == nil else { return }
         engineError = nil
+        latestCompletedSession = nil
         let now = Date()
         activeStartTime = now
         activeSessionStartedAt = now

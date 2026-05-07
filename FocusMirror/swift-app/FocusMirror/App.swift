@@ -20,9 +20,19 @@ struct FocusMirrorApp: App {
             MenuBarControlView()
                 .environment(model)
         } label: {
-            Image(systemName: model.isSessionActive ? "record.circle.fill" : "circle.grid.cross")
+            Image(systemName: menuBarSystemImage)
         }
         .menuBarExtraStyle(.window)
+    }
+
+    private var menuBarSystemImage: String {
+        if model.isSessionActive {
+            return "record.circle.fill"
+        }
+        if model.latestCompletedSession != nil {
+            return "chart.pie.fill"
+        }
+        return "circle.grid.cross"
     }
 }
 
@@ -43,6 +53,8 @@ private struct MenuBarControlView: View {
 
             if model.isSessionActive {
                 activeSessionControls
+            } else if let session = model.latestCompletedSession {
+                completedSessionSummary(session)
             } else {
                 startSessionControls(model: model)
             }
@@ -72,7 +84,7 @@ private struct MenuBarControlView: View {
                     }
 
                 Circle()
-                    .stroke(model.isSessionActive ? Color.red : HomeTheme.primaryBlue, lineWidth: 2.6)
+                    .stroke(headerAccent, lineWidth: 2.6)
                     .frame(width: 23, height: 23)
             }
             .frame(width: 34, height: 34)
@@ -82,7 +94,7 @@ private struct MenuBarControlView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
 
-                Text(model.isSessionActive ? "Camera active" : "Ready")
+                Text(headerStatus)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(HomeTheme.secondaryText)
             }
@@ -100,6 +112,26 @@ private struct MenuBarControlView: View {
             .foregroundStyle(HomeTheme.secondaryText)
             .help("Open FocusMirror")
         }
+    }
+
+    private var headerStatus: String {
+        if model.isSessionActive {
+            return "Camera active"
+        }
+        if model.latestCompletedSession != nil {
+            return "Session complete"
+        }
+        return "Ready"
+    }
+
+    private var headerAccent: Color {
+        if model.isSessionActive {
+            return .red
+        }
+        if model.latestCompletedSession != nil {
+            return MenuBarSummaryPalette.green
+        }
+        return HomeTheme.primaryBlue
     }
 
     private var activeSessionControls: some View {
@@ -129,6 +161,66 @@ private struct MenuBarControlView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.regular)
             .tint(Color(red: 0.84, green: 0.12, blue: 0.16))
+        }
+    }
+
+    private func completedSessionSummary(_ session: FocusSession) -> some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .center, spacing: 13) {
+                MenuBarSummaryRing(progress: session.confirmedWorkRatio)
+                    .frame(width: 70, height: 70)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Confirmed Work")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(HomeTheme.secondaryText)
+
+                    Text(menuBarPercent(session.confirmedWorkRatio))
+                        .font(.system(size: 30, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+
+                    Text("\(compactDuration(session.confirmedWorkSeconds)) of \(compactDuration(session.duration))")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(HomeTheme.secondaryText)
+                        .lineLimit(1)
+                }
+            }
+
+            MenuBarTimelineBar(session: session)
+                .frame(height: 10)
+
+            HStack(spacing: 7) {
+                MenuBarSummaryMetric(
+                    title: "Screen",
+                    value: compactDuration(session.screenFocusedSeconds),
+                    color: MenuBarSummaryPalette.green
+                )
+
+                MenuBarSummaryMetric(
+                    title: "Review",
+                    value: compactDuration(session.reviewSeconds),
+                    color: MenuBarSummaryPalette.orange
+                )
+
+                MenuBarSummaryMetric(
+                    title: "Corrected",
+                    value: compactDuration(session.correctedSeconds),
+                    color: MenuBarSummaryPalette.purple
+                )
+            }
+
+            Button {
+                cameraMessage = nil
+                model.latestCompletedSession = nil
+            } label: {
+                Label("New Session", systemImage: "plus")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 34)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+            .tint(HomeTheme.primaryBlue)
         }
     }
 
@@ -199,6 +291,146 @@ private struct MenuBarControlView: View {
             NSApp.windows.first(where: { $0.title == "FocusMirror" })?.makeKeyAndOrderFront(nil)
         }
     }
+}
+
+private struct MenuBarSummaryRing: View {
+    let progress: Double
+
+    private var clampedProgress: CGFloat {
+        CGFloat(min(max(progress, 0), 1))
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.10), lineWidth: 7)
+
+            Circle()
+                .trim(from: 0, to: clampedProgress)
+                .stroke(
+                    MenuBarSummaryPalette.green,
+                    style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+
+            Image(systemName: "checkmark")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(MenuBarSummaryPalette.green)
+        }
+        .padding(4)
+    }
+}
+
+private struct MenuBarTimelineBar: View {
+    let session: FocusSession
+
+    var body: some View {
+        GeometryReader { geometry in
+            if session.segments.isEmpty {
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(Color.white.opacity(0.10))
+            } else {
+                HStack(spacing: 1) {
+                    ForEach(session.segments) { segment in
+                        Rectangle()
+                            .fill(segment.state.menuBarSummaryColor)
+                            .frame(width: max(2, geometry.size.width * segment.duration / max(session.duration, 1)))
+                            .overlay(alignment: .bottom) {
+                                if segment.userCorrection == .actuallyFocused {
+                                    Rectangle()
+                                        .fill(MenuBarSummaryPalette.green)
+                                        .frame(height: 2)
+                                }
+                            }
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                }
+            }
+        }
+        .accessibilityLabel("Session timeline")
+    }
+}
+
+private struct MenuBarSummaryMetric: View {
+    let title: String
+    let value: String
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 6, height: 6)
+
+                Text(title)
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(HomeTheme.secondaryText)
+                    .lineLimit(1)
+            }
+
+            Text(value)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.055))
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        }
+    }
+}
+
+private struct MenuBarSummaryPalette {
+    static let green = Color(red: 0.10, green: 0.84, blue: 0.38)
+    static let red = Color(red: 0.92, green: 0.20, blue: 0.25)
+    static let orange = Color(red: 1.00, green: 0.49, blue: 0.16)
+    static let blue = Color(red: 0.12, green: 0.38, blue: 0.92)
+    static let purple = Color(red: 0.58, green: 0.25, blue: 0.95)
+    static let gray = Color(red: 0.42, green: 0.49, blue: 0.55)
+}
+
+private extension DetectionState {
+    var menuBarSummaryColor: Color {
+        switch self {
+        case .focused: MenuBarSummaryPalette.green
+        case .away: MenuBarSummaryPalette.red
+        case .lookingDown: MenuBarSummaryPalette.orange
+        case .talking: MenuBarSummaryPalette.blue
+        case .eyesClosed: MenuBarSummaryPalette.purple
+        case .uncertain: MenuBarSummaryPalette.gray
+        }
+    }
+}
+
+private func menuBarPercent(_ value: Double) -> String {
+    "\(Int((value * 100).rounded()))%"
+}
+
+private func compactDuration(_ seconds: TimeInterval) -> String {
+    let total = max(0, Int(seconds.rounded()))
+    let hours = total / 3600
+    let minutes = (total % 3600) / 60
+    let remainingSeconds = total % 60
+
+    if hours > 0 {
+        return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
+    }
+    if minutes > 0 {
+        return "\(minutes)m"
+    }
+    return "\(remainingSeconds)s"
 }
 
 private struct RootWindowChrome<Content: View>: View {
