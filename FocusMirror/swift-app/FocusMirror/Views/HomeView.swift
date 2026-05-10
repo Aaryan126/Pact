@@ -5,6 +5,8 @@ struct HomeView: View {
     @Environment(AppModel.self) private var model
     let openSession: (UUID) -> Void
     @State private var cameraMessage: String?
+    @State private var isHistoryPresented = false
+    @State private var isSettingsPresented = false
 
     var body: some View {
         @Bindable var model = model
@@ -13,133 +15,328 @@ struct HomeView: View {
             HomeTheme.windowBackground
                 .ignoresSafeArea()
 
-            HStack(spacing: 0) {
-                startPanel(model: model)
-                    .frame(width: 430, alignment: .leading)
-                    .frame(maxHeight: .infinity, alignment: .leading)
+            HomeScreenGlow()
+                .ignoresSafeArea()
 
-                Rectangle()
-                    .fill(HomeTheme.border)
-                    .frame(width: 1)
+            VStack(spacing: 0) {
+                HStack(spacing: 21) {
+                    Spacer()
 
-                HistoryView(openSession: openSession)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    Button {
+                        isHistoryPresented.toggle()
+                    } label: {
+                        Label("History", systemImage: "clock.arrow.circlepath")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(HomeTheme.primaryText)
+                            .labelStyle(.titleAndIcon)
+                            .padding(.horizontal, 18)
+                            .frame(height: 39)
+                    }
+                    .buttonStyle(.plain)
+                    .background(HomeTheme.controlBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(HomeTheme.controlStroke, lineWidth: 1)
+                    }
+                    .popover(isPresented: $isHistoryPresented, arrowEdge: .top) {
+                        HomeHistoryPopover(
+                            sessions: model.sessions,
+                            openSession: openSession,
+                            deleteAllSessions: model.deleteAllSessions,
+                            isPresented: $isHistoryPresented
+                        )
+                    }
+
+                    Button {
+                        isSettingsPresented.toggle()
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(HomeTheme.primaryText)
+                            .frame(width: 38, height: 39)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Settings")
+                    .popover(isPresented: $isSettingsPresented, arrowEdge: .top) {
+                        HomeSettingsPopover(appearanceMode: $model.appearanceMode)
+                    }
+                }
+                .padding(.top, 33)
+                .padding(.trailing, 36)
+
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .zIndex(2)
+
+            GeometryReader { geometry in
+                VStack(spacing: 0) {
+                    Spacer()
+                        .frame(height: max(92, geometry.size.height * 0.158))
+
+                    AppMark()
+
+                    Text("Start session")
+                        .font(.system(size: 38, weight: .semibold, design: .default))
+                        .foregroundStyle(HomeTheme.primaryText)
+                        .padding(.top, 34)
+
+                    Text("FocusMirror observes silently and\nsummarizes focused time after you\nend the session.")
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundStyle(HomeTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(5)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 374)
+                        .padding(.top, 22)
+
+                    Spacer()
+                        .frame(height: max(44, geometry.size.height * 0.074))
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Length")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(HomeTheme.primaryText)
+
+                        SessionLengthSegmentedControl(selection: $model.selectedLength)
+                            .frame(height: 46)
+                    }
+                    .frame(width: 414, alignment: .leading)
+
+                    Button {
+                        Task {
+                            let status = await CameraPermission.request()
+                            guard status == .authorized else {
+                                cameraMessage = "Camera permission is required before starting."
+                                return
+                            }
+                            model.startSession()
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 21, weight: .bold))
+                            Text("Start")
+                                .font(.system(size: 21, weight: .semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(width: 414, height: 58)
+                        .background(HomeTheme.primaryButtonFill)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(.top, 32)
+
+                    if let error = model.engineError ?? cameraMessage {
+                        Text(error)
+                            .foregroundStyle(Color(red: 1.0, green: 0.28, blue: 0.30))
+                            .font(.system(size: 12, weight: .medium))
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(width: 414)
+                            .padding(.top, 14)
+                    }
+
+                    Spacer(minLength: 28)
+
+                    HStack(spacing: 12) {
+                        Image(systemName: "shield")
+                            .font(.system(size: 15, weight: .medium))
+
+                        Text("Your data stays on your device. Private and secure.")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundStyle(HomeTheme.secondaryText)
+
+                    Spacer()
+                        .frame(height: max(38, geometry.size.height * 0.056))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
         }
         .navigationTitle("")
-    }
-
-    private func startPanel(model: AppModel) -> some View {
-        @Bindable var model = model
-
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top) {
-                AppMark()
-
-                Spacer()
-
-                AppearanceModePicker(selection: $model.appearanceMode)
-                    .frame(width: 138)
-                    .padding(.top, 5)
-            }
-            .padding(.bottom, 18)
-
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Start session")
-                    .font(.system(size: 30, weight: .semibold, design: .default))
-                    .foregroundStyle(HomeTheme.primaryText)
-
-                Text("FocusMirror observes silently and\nsummarizes focused time after you\nend the session.")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(HomeTheme.secondaryText)
-                    .lineSpacing(3)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: true, vertical: true)
-            }
-
-            Rectangle()
-                .fill(HomeTheme.border)
-                .frame(height: 1)
-                .padding(.top, 15)
-                .padding(.bottom, 18)
-
-            VStack(alignment: .leading, spacing: 9) {
-                Text("Length")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(HomeTheme.primaryText)
-
-                SessionLengthSegmentedControl(selection: $model.selectedLength)
-                    .frame(width: 318, height: 34)
-            }
-
-            Button {
-                Task {
-                    let status = await CameraPermission.request()
-                    guard status == .authorized else {
-                        cameraMessage = "Camera permission is required before starting."
-                        return
-                    }
-                    model.startSession()
-                }
-            } label: {
-                ZStack {
-                    HomeTheme.primaryBlue
-                    Label("Start", systemImage: "play.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 318, height: 43)
-            }
-            .buttonStyle(.plain)
-            .frame(width: 318, height: 43)
-            .contentShape(RoundedRectangle(cornerRadius: 7))
-            .clipShape(RoundedRectangle(cornerRadius: 7))
-            .padding(.top, 20)
-
-            if let error = model.engineError ?? cameraMessage {
-                Text(error)
-                    .foregroundStyle(Color(red: 1.0, green: 0.28, blue: 0.30))
-                    .font(.system(size: 12, weight: .medium))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 16)
-            }
-        }
-        .frame(width: 318, alignment: .leading)
-        .padding(.leading, 66)
-        .frame(maxHeight: .infinity, alignment: .leading)
     }
 }
 
 private struct AppMark: View {
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            HomeTheme.markHighlight,
-                            HomeTheme.markBase
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(HomeTheme.border, lineWidth: 1)
-                }
+            Circle()
+                .stroke(HomeTheme.logoOuterBlue, lineWidth: 12)
+                .frame(width: 112, height: 112)
 
             Circle()
-                .stroke(HomeTheme.primaryBlue, lineWidth: 4.5)
-                .frame(width: 41, height: 41)
-
-            Circle()
-                .stroke(HomeTheme.primaryBlue.opacity(0.70), lineWidth: 4)
-                .frame(width: 52, height: 52)
+                .stroke(HomeTheme.logoInnerBlue, lineWidth: 10)
+                .frame(width: 84, height: 84)
         }
-        .frame(width: 60, height: 60)
-        .shadow(color: HomeTheme.shadow, radius: 14, x: 0, y: 8)
+        .frame(width: 118, height: 118)
+        .shadow(color: HomeTheme.logoGlow, radius: 24, x: 0, y: 0)
+    }
+}
+
+private struct HomeScreenGlow: View {
+    var body: some View {
+        ZStack {
+            RadialGradient(
+                colors: [
+                    HomeTheme.upperGlow,
+                    .clear
+                ],
+                center: .top,
+                startRadius: 0,
+                endRadius: 640
+            )
+
+            RadialGradient(
+                colors: [
+                    HomeTheme.centerGlow,
+                    .clear
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: 520
+            )
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct HomeHistoryPopover: View {
+    let sessions: [FocusSession]
+    let openSession: (UUID) -> Void
+    let deleteAllSessions: () -> Void
+    @Binding var isPresented: Bool
+    @State private var isConfirmingDeleteAll = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("History")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(HomeTheme.primaryText)
+
+                Spacer()
+
+                if !sessions.isEmpty {
+                    Button {
+                        isConfirmingDeleteAll = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(HomeTheme.secondaryText)
+                    .help("Delete all local session history")
+                }
+            }
+
+            if sessions.isEmpty {
+                Text("Past sessions will appear here.")
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(HomeTheme.secondaryText)
+                    .frame(maxWidth: .infinity, minHeight: 82, alignment: .center)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(sessions) { session in
+                            Button {
+                                isPresented = false
+                                openSession(session.id)
+                            } label: {
+                                HomeHistoryPopoverRow(session: session)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 1)
+                }
+                .frame(maxHeight: 286)
+                .scrollIndicators(.hidden)
+            }
+        }
+        .padding(18)
+        .frame(width: 358)
+        .background(HomeTheme.popoverBackground)
+        .alert("Delete all session history?", isPresented: $isConfirmingDeleteAll) {
+            Button("Delete", role: .destructive) {
+                deleteAllSessions()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes local FocusMirror session records from this Mac.")
+        }
+    }
+}
+
+private struct HomeHistoryPopoverRow: View {
+    let session: FocusSession
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(HomeTheme.subtleBackground)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(HomeTheme.border, lineWidth: 1)
+                    }
+
+                Image(systemName: "calendar")
+                    .font(.system(size: 14, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(HomeTheme.primaryBlue)
+            }
+            .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(session.startTime.formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(HomeTheme.primaryText)
+                    .lineLimit(1)
+
+                Text("\(formatWholePercent(session.screenFocusedRatio)) focused")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(HomeTheme.secondaryText)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            Text(formatMinutes(session.duration))
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(HomeTheme.secondaryText)
+                .monospacedDigit()
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 62)
+        .background(HomeTheme.historyRowBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(HomeTheme.border, lineWidth: 1)
+        }
+    }
+}
+
+private struct HomeSettingsPopover: View {
+    @Binding var appearanceMode: AppAppearanceMode
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Appearance")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(HomeTheme.primaryText)
+
+            AppearanceModePicker(selection: $appearanceMode)
+                .frame(width: 196, height: 32)
+        }
+        .padding(16)
+        .background(HomeTheme.popoverBackground)
     }
 }
 
@@ -188,7 +385,7 @@ private struct SessionLengthSegmentedControl: View {
                     selection = length
                 } label: {
                     Text(length.label)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(selection == length ? .white : HomeTheme.secondaryText)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .contentShape(Rectangle())
@@ -221,21 +418,21 @@ private struct SessionLengthSegmentedControl: View {
 enum HomeTheme {
     static let chromeBackground = adaptiveColor(
         light: NSColor(calibratedRed: 0.970, green: 0.975, blue: 0.982, alpha: 1),
-        dark: NSColor(calibratedRed: 0.010, green: 0.013, blue: 0.020, alpha: 1)
+        dark: NSColor(calibratedRed: 0.088, green: 0.096, blue: 0.102, alpha: 1)
     )
     static let windowBackground = LinearGradient(
         colors: [
             adaptiveColor(
                 light: NSColor(calibratedRed: 0.988, green: 0.991, blue: 0.996, alpha: 1),
-                dark: NSColor(calibratedRed: 0.035, green: 0.043, blue: 0.060, alpha: 1)
+                dark: NSColor(calibratedRed: 0.006, green: 0.010, blue: 0.017, alpha: 1)
             ),
             adaptiveColor(
                 light: NSColor(calibratedRed: 0.954, green: 0.963, blue: 0.974, alpha: 1),
-                dark: NSColor(calibratedRed: 0.006, green: 0.008, blue: 0.014, alpha: 1)
+                dark: NSColor(calibratedRed: 0.001, green: 0.003, blue: 0.008, alpha: 1)
             )
         ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
+        startPoint: .top,
+        endPoint: .bottom
     )
     static let panelBackground = windowBackground
     static let historyRowBackground = LinearGradient(
@@ -273,9 +470,45 @@ enum HomeTheme {
         dark: NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 0.62)
     )
     static let primaryBlue = Color(red: 0.02, green: 0.40, blue: 0.98)
+    static let logoOuterBlue = adaptiveColor(
+        light: NSColor(calibratedRed: 0.000, green: 0.240, blue: 0.780, alpha: 1),
+        dark: NSColor(calibratedRed: 0.000, green: 0.185, blue: 0.610, alpha: 1)
+    )
+    static let logoInnerBlue = adaptiveColor(
+        light: NSColor(calibratedRed: 0.020, green: 0.390, blue: 0.980, alpha: 1),
+        dark: NSColor(calibratedRed: 0.020, green: 0.410, blue: 1.000, alpha: 1)
+    )
+    static let logoGlow = adaptiveColor(
+        light: NSColor(calibratedRed: 0.020, green: 0.280, blue: 0.760, alpha: 0.14),
+        dark: NSColor(calibratedRed: 0.020, green: 0.290, blue: 0.900, alpha: 0.32)
+    )
+    static let upperGlow = adaptiveColor(
+        light: NSColor(calibratedRed: 0.820, green: 0.900, blue: 1.000, alpha: 0.54),
+        dark: NSColor(calibratedRed: 0.040, green: 0.115, blue: 0.230, alpha: 0.40)
+    )
+    static let centerGlow = adaptiveColor(
+        light: NSColor(calibratedRed: 0.780, green: 0.860, blue: 1.000, alpha: 0.24),
+        dark: NSColor(calibratedRed: 0.020, green: 0.060, blue: 0.130, alpha: 0.30)
+    )
+    static let controlBackground = adaptiveColor(
+        light: NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 0.82),
+        dark: NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 0.035)
+    )
+    static let controlStroke = adaptiveColor(
+        light: NSColor(calibratedRed: 0.785, green: 0.815, blue: 0.865, alpha: 1),
+        dark: NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 0.145)
+    )
+    static let primaryButtonFill = LinearGradient(
+        colors: [
+            Color(red: 0.030, green: 0.450, blue: 1.000),
+            Color(red: 0.020, green: 0.360, blue: 0.960)
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
     static let segmentBackground = adaptiveColor(
         light: NSColor(calibratedRed: 0.918, green: 0.934, blue: 0.956, alpha: 1),
-        dark: NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 0.045)
+        dark: NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 0.050)
     )
     static let segmentDivider = adaptiveColor(
         light: NSColor(calibratedRed: 0.810, green: 0.836, blue: 0.875, alpha: 1),
@@ -284,6 +517,10 @@ enum HomeTheme {
     static let cardBackground = adaptiveColor(
         light: NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 0.96),
         dark: NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 0.055)
+    )
+    static let popoverBackground = adaptiveColor(
+        light: NSColor(calibratedRed: 0.990, green: 0.993, blue: 0.998, alpha: 1),
+        dark: NSColor(calibratedRed: 0.070, green: 0.076, blue: 0.090, alpha: 1)
     )
     static let subtleBackground = adaptiveColor(
         light: NSColor(calibratedRed: 0.960, green: 0.968, blue: 0.980, alpha: 1),
@@ -307,7 +544,7 @@ enum HomeTheme {
         case .light:
             NSColor(calibratedRed: 0.970, green: 0.975, blue: 0.982, alpha: 1)
         case .dark:
-            NSColor(calibratedRed: 0.010, green: 0.013, blue: 0.020, alpha: 1)
+            NSColor(calibratedRed: 0.088, green: 0.096, blue: 0.102, alpha: 1)
         }
     }
 
