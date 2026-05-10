@@ -115,14 +115,14 @@ struct HomeView: View {
                             model.startSession()
                         }
                     } label: {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 10) {
                             Image(systemName: "play.fill")
-                                .font(.system(size: 21, weight: .bold))
+                                .font(.system(size: 16, weight: .semibold))
                             Text("Start")
-                                .font(.system(size: 21, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                         }
                         .foregroundStyle(.white)
-                        .frame(width: 414, height: 58)
+                        .frame(width: 414, height: 46)
                         .background(HomeTheme.primaryButtonFill)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
