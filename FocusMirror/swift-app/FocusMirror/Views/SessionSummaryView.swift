@@ -35,20 +35,11 @@ struct SessionSummaryView: View {
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
                 .background(HomeTheme.windowBackground.ignoresSafeArea())
-                .toolbar {
-                    ToolbarItemGroup(placement: .navigation) {
-                        Button(action: onBack) {
-                            Image(systemName: "chevron.left")
-                        }
-                        .help("Back to history")
-
-                        Button {
-                            exportCSV(for: session)
-                        } label: {
-                            Image(systemName: "square.and.arrow.down")
-                        }
-                        .help("Export session summary as CSV")
-                    }
+                .background {
+                    SummaryTitlebarControls(
+                        onHome: onBack,
+                        onExport: { exportCSV(for: session) }
+                    )
                 }
             } else {
                 VStack(spacing: 14) {
@@ -106,6 +97,120 @@ struct SessionSummaryView: View {
         formatter.timeZone = .current
         formatter.dateFormat = "yyyy-MM-dd_HH-mm"
         return "FocusMirror Session \(formatter.string(from: session.startTime)).csv"
+    }
+}
+
+private struct SummaryTitlebarControls: NSViewRepresentable {
+    let onHome: () -> Void
+    let onExport: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onHome: onHome, onExport: onExport)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async {
+            context.coordinator.install(in: view.window)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.onHome = onHome
+        context.coordinator.onExport = onExport
+        DispatchQueue.main.async {
+            context.coordinator.install(in: nsView.window)
+        }
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.remove()
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var onHome: () -> Void
+        var onExport: () -> Void
+        private weak var window: NSWindow?
+        private var accessory: NSTitlebarAccessoryViewController?
+        private var hostingView: NSHostingView<SummaryTitlebarControlButtons>?
+
+        init(onHome: @escaping () -> Void, onExport: @escaping () -> Void) {
+            self.onHome = onHome
+            self.onExport = onExport
+        }
+
+        func install(in window: NSWindow?) {
+            guard let window else { return }
+
+            if self.window !== window {
+                remove()
+                self.window = window
+            }
+
+            window.title = ""
+            window.titleVisibility = .hidden
+
+            let controls = SummaryTitlebarControlButtons(
+                onHome: { [weak self] in self?.onHome() },
+                onExport: { [weak self] in self?.onExport() }
+            )
+
+            if let hostingView {
+                hostingView.rootView = controls
+                return
+            }
+
+            let hostingView = NSHostingView(rootView: controls)
+            hostingView.frame = NSRect(x: 0, y: 0, width: 76, height: 30)
+            let accessory = NSTitlebarAccessoryViewController()
+            accessory.view = hostingView
+            accessory.layoutAttribute = .right
+            window.addTitlebarAccessoryViewController(accessory)
+
+            self.hostingView = hostingView
+            self.accessory = accessory
+        }
+
+        func remove() {
+            if let accessory, let window {
+                if let index = window.titlebarAccessoryViewControllers.firstIndex(where: { $0 === accessory }) {
+                    window.removeTitlebarAccessoryViewController(at: index)
+                }
+            }
+            accessory = nil
+            hostingView = nil
+            window = nil
+        }
+    }
+}
+
+private struct SummaryTitlebarControlButtons: View {
+    let onHome: () -> Void
+    let onExport: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(action: onHome) {
+                Image(systemName: "house")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(HomeTheme.secondaryText)
+            .help("Home")
+
+            Button(action: onExport) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(HomeTheme.secondaryText)
+            .help("Export session summary as CSV")
+        }
+        .frame(width: 76, height: 30)
     }
 }
 

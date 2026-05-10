@@ -1,11 +1,13 @@
 import SwiftUI
 
+private let mainWindowIdentifier = NSUserInterfaceItemIdentifier("FocusMirrorMainWindow")
+
 @main
 struct FocusMirrorApp: App {
     @State private var model = AppModel()
 
     var body: some Scene {
-        WindowGroup("FocusMirror", id: "main") {
+        WindowGroup("", id: "main") {
             RootWindowChrome(appearanceMode: model.appearanceMode) {
                 ContentView()
                     .environment(model)
@@ -297,7 +299,7 @@ private struct MenuBarControlView: View {
     private func showMainWindow() {
         NSApp.activate(ignoringOtherApps: true)
 
-        if let window = NSApp.windows.first(where: { $0.title == "FocusMirror" }) {
+        if let window = NSApp.windows.first(where: { $0.identifier == mainWindowIdentifier }) {
             window.deminiaturize(nil)
             window.makeKeyAndOrderFront(nil)
             return
@@ -305,7 +307,7 @@ private struct MenuBarControlView: View {
 
         openWindow(id: "main")
         DispatchQueue.main.async {
-            NSApp.windows.first(where: { $0.title == "FocusMirror" })?.makeKeyAndOrderFront(nil)
+            NSApp.windows.first(where: { $0.identifier == mainWindowIdentifier })?.makeKeyAndOrderFront(nil)
         }
     }
 }
@@ -472,12 +474,13 @@ private struct WindowConfigurator: NSViewRepresentable {
         guard let window = view.window else { return }
         let chromeBackground = HomeTheme.chromeNSColor(for: appearanceMode)
 
-        window.title = "FocusMirror"
+        window.identifier = mainWindowIdentifier
+        window.title = ""
         window.appearance = NSAppearance(named: appearanceMode.nsAppearanceName)
         window.isOpaque = true
         window.backgroundColor = chromeBackground
         window.titlebarAppearsTransparent = false
-        window.titleVisibility = .visible
+        window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
 
         if window.styleMask.contains(.fullSizeContentView) {
