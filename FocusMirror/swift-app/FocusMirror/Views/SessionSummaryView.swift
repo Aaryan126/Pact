@@ -359,8 +359,8 @@ private struct FocusedWorkCard: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("Focused Work")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(HomeTheme.primaryText)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(summary.state.color)
                     .lineLimit(1)
 
                 Text(formatCompactDuration(summary.seconds))
@@ -387,16 +387,11 @@ private struct SecondaryMetricCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(summary.state.color)
-                    .frame(width: 17, height: 17)
-                Text(summary.state.label)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(HomeTheme.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.76)
-            }
+            Text(summary.state.label)
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(summary.state.color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.76)
 
             Text(formatCompactDuration(summary.seconds))
                 .font(.system(size: 38, weight: .bold))
@@ -424,6 +419,30 @@ private struct ActivityBreakdownPanel: View {
     }
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 28) {
+                ActivityBreakdownTable(rows: rows, uncertainSummary: uncertainSummary)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                ActivityBreakdownChart(rows: rows)
+                    .frame(width: 430)
+            }
+
+            VStack(alignment: .leading, spacing: 18) {
+                ActivityBreakdownTable(rows: rows, uncertainSummary: uncertainSummary)
+                ActivityBreakdownChart(rows: rows)
+            }
+        }
+        .padding(24)
+        .summaryCard(stroke: HomeTheme.border, fill: .clear)
+    }
+}
+
+private struct ActivityBreakdownTable: View {
+    let rows: [FocusSessionStateSummary]
+    let uncertainSummary: FocusSessionStateSummary
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 Text("Activity breakdown")
@@ -432,16 +451,11 @@ private struct ActivityBreakdownPanel: View {
 
                 Spacer()
 
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(DetectionState.uncertain.color)
-                        .frame(width: 10, height: 10)
-                    Text("Uncertain: \(formatCompactDuration(uncertainSummary.seconds)) (\(formatWholePercent(uncertainSummary.ratio)))")
-                        .font(.system(size: 14, weight: .medium))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-                .foregroundStyle(HomeTheme.secondaryText)
+                Text("Uncertain: \(formatCompactDuration(uncertainSummary.seconds)) (\(formatWholePercent(uncertainSummary.ratio)))")
+                    .font(.system(size: 14, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .foregroundStyle(HomeTheme.secondaryText)
             }
 
             StateDistributionBar(rows: rows)
@@ -463,16 +477,11 @@ private struct ActivityBreakdownPanel: View {
 
                 ForEach(rows) { row in
                     HStack {
-                        HStack(spacing: 13) {
-                            Circle()
-                                .fill(row.state.color)
-                                .frame(width: 13, height: 13)
-                            Text(row.state.label)
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(HomeTheme.primaryText)
-                                .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(row.state.label)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(row.state.color)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
                         Text(formatCompactDuration(row.seconds))
                             .font(.system(size: 16, weight: .medium))
@@ -497,8 +506,161 @@ private struct ActivityBreakdownPanel: View {
                 }
             }
         }
-        .padding(24)
-        .summaryCard(stroke: HomeTheme.border, fill: .clear)
+    }
+}
+
+private struct ActivityBreakdownChart: View {
+    let rows: [FocusSessionStateSummary]
+
+    private let chartSize: CGFloat = 198
+    private let legendWidth: CGFloat = 146
+    private let contentSpacing: CGFloat = 46
+    private let contentOffset: CGFloat = 18
+
+    private var nonZeroRows: [FocusSessionStateSummary] {
+        rows.filter { $0.seconds > 0 }
+    }
+
+    private var detailRows: [FocusSessionStateSummary] {
+        Array(nonZeroRows.prefix(3))
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: contentSpacing) {
+            DonutChart(rows: nonZeroRows)
+                .frame(width: chartSize, height: chartSize)
+
+            legend
+                .frame(width: legendWidth, alignment: .leading)
+        }
+        .offset(x: contentOffset)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 26)
+        .frame(maxWidth: .infinity, minHeight: 282, alignment: .center)
+        .background(HomeTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(HomeTheme.border, lineWidth: 1)
+        }
+    }
+
+    @ViewBuilder
+    private var legend: some View {
+        if detailRows.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("0%")
+                    .font(.system(size: 32, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(HomeTheme.secondaryText)
+                Text("No activity recorded")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(HomeTheme.secondaryText)
+                    .lineLimit(2)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 18) {
+                ForEach(detailRows) { row in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(formatWholePercent(row.ratio))
+                            .font(.system(size: 30, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(row.state.color)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+
+                        Text(chartLabel(for: row.state))
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(HomeTheme.secondaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                    }
+                }
+            }
+        }
+    }
+
+    private func chartLabel(for state: DetectionState) -> String {
+        state == .focused ? "Focused Work" : state.label
+    }
+}
+
+private struct DonutChart: View {
+    let rows: [FocusSessionStateSummary]
+
+    private let lineWidth: CGFloat = 48
+
+    private var totalSeconds: TimeInterval {
+        rows.reduce(0) { $0 + $1.seconds }
+    }
+
+    private var segments: [DonutChartSegment] {
+        guard totalSeconds > 0 else { return [] }
+
+        var startRatio = 0.0
+        return rows.map { row in
+            let span = row.seconds / totalSeconds
+            let segment = DonutChartSegment(
+                id: row.id,
+                color: row.state.color,
+                startRatio: startRatio,
+                endRatio: startRatio + span
+            )
+            startRatio += span
+            return segment
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(HomeTheme.subtleBackground, lineWidth: lineWidth)
+
+            if let onlySegment = segments.first, segments.count == 1 {
+                Circle()
+                    .stroke(onlySegment.color, lineWidth: lineWidth)
+            } else {
+                ForEach(segments) { segment in
+                    DonutSlice(
+                        startAngle: angle(for: segment.startRatio),
+                        endAngle: angle(for: segment.endRatio),
+                        lineWidth: lineWidth
+                    )
+                    .stroke(segment.color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .butt))
+                }
+            }
+        }
+        .accessibilityLabel("Activity breakdown chart")
+    }
+
+    private func angle(for ratio: Double) -> Angle {
+        .degrees(-90 + (ratio * 360))
+    }
+}
+
+private struct DonutChartSegment: Identifiable {
+    let id: String
+    let color: Color
+    let startRatio: Double
+    let endRatio: Double
+}
+
+private struct DonutSlice: Shape {
+    let startAngle: Angle
+    let endAngle: Angle
+    let lineWidth: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let radius = max(0, (min(rect.width, rect.height) - lineWidth) / 2)
+        path.addArc(
+            center: CGPoint(x: rect.midX, y: rect.midY),
+            radius: radius,
+            startAngle: startAngle,
+            endAngle: endAngle,
+            clockwise: false
+        )
+        return path
     }
 }
 
@@ -546,8 +708,25 @@ private struct StateDistributionBar: View {
 private struct SessionTimelinePanel: View {
     let session: FocusSession
 
+    private var orderedSegments: [StateSegment] {
+        session.segments.sorted { lhs, rhs in
+            if lhs.startSeconds != rhs.startSeconds {
+                return lhs.startSeconds < rhs.startSeconds
+            }
+            return lhs.endSeconds < rhs.endSeconds
+        }
+    }
+
+    private var startingState: DetectionState {
+        orderedSegments.first?.state ?? .focused
+    }
+
+    private var endingState: DetectionState {
+        orderedSegments.last?.state ?? .uncertain
+    }
+
     private var highlightedSegment: StateSegment? {
-        session.segments
+        orderedSegments
             .filter { !$0.state.countsAsFocused }
             .max { $0.duration < $1.duration }
     }
@@ -566,9 +745,8 @@ private struct SessionTimelinePanel: View {
 
             HStack(alignment: .top, spacing: 16) {
                 TimelineCallout(
-                    color: DetectionState.focused.color,
                     title: formattedTimelineTime(session.startTime),
-                    subtitle: "Session start",
+                    state: startingState,
                     alignment: .leading
                 )
 
@@ -576,10 +754,9 @@ private struct SessionTimelinePanel: View {
 
                 if let highlightedSegment {
                     TimelineCallout(
-                        color: highlightedSegment.state.color,
                         title: "\(formattedTimelineTime(session.startTime.addingTimeInterval(highlightedSegment.startSeconds))) - \(formattedTimelineTime(session.startTime.addingTimeInterval(highlightedSegment.endSeconds)))",
-                        subtitle: highlightedSegment.state.label,
-                        alignment: .center
+                        state: highlightedSegment.state,
+                        alignment: .leading
                     )
                     .frame(maxWidth: 260)
                 }
@@ -587,9 +764,8 @@ private struct SessionTimelinePanel: View {
                 Spacer(minLength: 16)
 
                 TimelineCallout(
-                    color: DetectionState.uncertain.color,
                     title: formattedTimelineTime(session.endTime),
-                    subtitle: "Session end",
+                    state: endingState,
                     alignment: .trailing
                 )
             }
@@ -681,31 +857,27 @@ private struct ProportionalTimelineBar: View {
 }
 
 private struct TimelineCallout: View {
-    let color: Color
     let title: String
-    let subtitle: String
+    let state: DetectionState
     let alignment: HorizontalAlignment
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Circle()
-                .fill(color)
-                .frame(width: 9, height: 9)
-                .padding(.top, 4)
-
-            VStack(alignment: alignment, spacing: 3) {
-                Text(title)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(HomeTheme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                Text(subtitle)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(HomeTheme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
+        VStack(alignment: alignment, spacing: 3) {
+            Text(title)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(HomeTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(timelineStateLabel(for: state))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(state.color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
+    }
+
+    private func timelineStateLabel(for state: DetectionState) -> String {
+        state == .focused ? "Focused" : state.label
     }
 }
 
