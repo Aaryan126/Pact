@@ -29,7 +29,7 @@ struct ContentView: View {
             }
         }
         .background(HomeTheme.windowBackground.ignoresSafeArea())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(model.appearanceMode.colorScheme)
         .onChange(of: model.isSessionActive) { _, isActive in
             if isActive {
                 selectedSessionID = nil

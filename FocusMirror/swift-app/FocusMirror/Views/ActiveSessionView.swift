@@ -15,7 +15,7 @@ struct ActiveSessionView: View {
                         .frame(width: 14, height: 14)
                     Text("Camera on. Processing locally. No recording.")
                         .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(HomeTheme.secondaryText)
                 }
 
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -24,17 +24,18 @@ struct ActiveSessionView: View {
                         Text(formatClock(elapsed))
                             .font(.system(size: 110, weight: .medium, design: .rounded))
                             .monospacedDigit()
+                            .foregroundStyle(HomeTheme.primaryText)
 
                         if let target = model.activeTargetDurationSeconds {
                             let remaining = max(0, target - elapsed)
                             Text("\(formatClock(remaining)) remaining of \(formatClock(target))")
                                 .font(.system(size: 19, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(HomeTheme.secondaryText)
                                 .monospacedDigit()
                         } else {
                             Text("Open-ended session")
                                 .font(.system(size: 19, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(HomeTheme.secondaryText)
                         }
                     }
                 }

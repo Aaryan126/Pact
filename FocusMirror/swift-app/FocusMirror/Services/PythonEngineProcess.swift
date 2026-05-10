@@ -248,7 +248,6 @@ final class PythonEngineProcess: EngineProcessControlling {
             return bundledPython
         }
 
-        #if DEBUG
         let candidates = [
             engineRoot.appendingPathComponent(".venv39/bin/python"),
             engineRoot.appendingPathComponent(".venv/bin/python"),
@@ -262,7 +261,6 @@ final class PythonEngineProcess: EngineProcessControlling {
         if ProcessInfo.processInfo.environment["FOCUSMIRROR_ALLOW_SYSTEM_PYTHON"] == "1" {
             return URL(fileURLWithPath: "/usr/bin/env")
         }
-        #endif
 
         throw EngineProcessError.pythonRuntimeNotFound
     }

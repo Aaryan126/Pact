@@ -143,6 +143,42 @@ struct FocusSession: Codable, Identifiable, Equatable {
         }
         return result
     }
+
+    var detectedStateSummaries: [FocusSessionStateSummary] {
+        let breakdown = breakdown()
+        return DetectionState.allCases.map { state in
+            let value = breakdown[state] ?? (0, 0)
+            return FocusSessionStateSummary(
+                state: state,
+                count: value.count,
+                seconds: value.seconds,
+                totalSeconds: duration
+            )
+        }
+    }
+
+    func detectedSummary(for state: DetectionState) -> FocusSessionStateSummary {
+        detectedStateSummaries.first { $0.state == state } ?? FocusSessionStateSummary(
+            state: state,
+            count: 0,
+            seconds: 0,
+            totalSeconds: duration
+        )
+    }
+}
+
+struct FocusSessionStateSummary: Identifiable, Equatable {
+    let state: DetectionState
+    let count: Int
+    let seconds: TimeInterval
+    let totalSeconds: TimeInterval
+
+    var id: String { state.id }
+
+    var ratio: Double {
+        guard totalSeconds > 0 else { return 0 }
+        return seconds / totalSeconds
+    }
 }
 
 struct EngineEvent: Decodable {

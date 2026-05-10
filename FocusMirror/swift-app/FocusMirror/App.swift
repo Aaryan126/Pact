@@ -6,19 +6,25 @@ struct FocusMirrorApp: App {
 
     var body: some Scene {
         WindowGroup("FocusMirror", id: "main") {
-            RootWindowChrome {
+            RootWindowChrome(appearanceMode: model.appearanceMode) {
                 ContentView()
                     .environment(model)
             }
-                .background(WindowConfigurator(contentSize: CGSize(width: 860, height: 470)))
-                .frame(minWidth: 840, minHeight: 450)
+                .background(
+                    WindowConfigurator(
+                        contentSize: CGSize(width: 1160, height: 720),
+                        appearanceMode: model.appearanceMode
+                    )
+                )
+                .frame(minWidth: 960, minHeight: 620)
         }
-        .defaultSize(width: 860, height: 470)
+        .defaultSize(width: 1160, height: 720)
         .windowResizability(.contentMinSize)
 
         MenuBarExtra {
             MenuBarControlView()
                 .environment(model)
+                .preferredColorScheme(model.appearanceMode.colorScheme)
         } label: {
             Image(systemName: menuBarSystemImage)
         }
@@ -49,7 +55,7 @@ private struct MenuBarControlView: View {
             header
 
             Divider()
-                .overlay(Color.white.opacity(0.10))
+                .overlay(HomeTheme.divider)
 
             if model.isSessionActive {
                 activeSessionControls
@@ -66,21 +72,25 @@ private struct MenuBarControlView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            Divider()
+                .overlay(HomeTheme.divider)
+
+            AppearanceModePicker(selection: $model.appearanceMode)
+
         }
         .padding(16)
         .frame(width: 306)
-        .background(Color(red: 0.035, green: 0.043, blue: 0.060))
-        .preferredColorScheme(.dark)
+        .background(HomeTheme.cardBackground)
     }
 
     private var header: some View {
         HStack(spacing: 11) {
             ZStack {
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(Color.white.opacity(0.08))
+                    .fill(HomeTheme.subtleBackground)
                     .overlay {
                         RoundedRectangle(cornerRadius: 7)
-                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                            .stroke(HomeTheme.border, lineWidth: 1)
                     }
 
                 Circle()
@@ -92,7 +102,7 @@ private struct MenuBarControlView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("FocusMirror")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeTheme.primaryText)
 
                 Text(headerStatus)
                     .font(.system(size: 12, weight: .medium))
@@ -129,7 +139,7 @@ private struct MenuBarControlView: View {
             return .red
         }
         if model.latestCompletedSession != nil {
-            return MenuBarSummaryPalette.green
+            return DetectionState.focused.color
         }
         return HomeTheme.primaryBlue
     }
@@ -143,7 +153,7 @@ private struct MenuBarControlView: View {
                     Text(formatClock(elapsed))
                         .font(.system(size: 34, weight: .medium, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeTheme.primaryText)
 
                     Text(activeSessionDetail(elapsed: elapsed))
                         .font(.system(size: 12, weight: .medium))
@@ -174,20 +184,20 @@ private struct MenuBarControlView: View {
     private func completedSessionSummary(_ session: FocusSession) -> some View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(alignment: .center, spacing: 13) {
-                MenuBarSummaryRing(progress: session.confirmedWorkRatio)
+                MenuBarSummaryRing(progress: session.screenFocusedRatio)
                     .frame(width: 70, height: 70)
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Confirmed Work")
+                    Text("Focused Work")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(HomeTheme.secondaryText)
 
-                    Text(menuBarPercent(session.confirmedWorkRatio))
+                    Text(formatWholePercent(session.screenFocusedRatio))
                         .font(.system(size: 30, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeTheme.primaryText)
 
-                    Text("\(compactDuration(session.confirmedWorkSeconds)) of \(compactDuration(session.duration))")
+                    Text("\(formatCompactDuration(session.screenFocusedSeconds)) of \(formatCompactDuration(session.duration))")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(HomeTheme.secondaryText)
                         .lineLimit(1)
@@ -199,21 +209,21 @@ private struct MenuBarControlView: View {
 
             HStack(spacing: 7) {
                 MenuBarSummaryMetric(
-                    title: "Screen",
-                    value: compactDuration(session.screenFocusedSeconds),
-                    color: MenuBarSummaryPalette.green
+                    title: "Focused",
+                    value: formatCompactDuration(session.detectedSummary(for: .focused).seconds),
+                    color: DetectionState.focused.color
                 )
 
                 MenuBarSummaryMetric(
-                    title: "Review",
-                    value: compactDuration(session.reviewSeconds),
-                    color: MenuBarSummaryPalette.orange
+                    title: "Looking",
+                    value: formatCompactDuration(session.detectedSummary(for: .lookingDown).seconds),
+                    color: DetectionState.lookingDown.color
                 )
 
                 MenuBarSummaryMetric(
-                    title: "Corrected",
-                    value: compactDuration(session.correctedSeconds),
-                    color: MenuBarSummaryPalette.purple
+                    title: "Away",
+                    value: formatCompactDuration(session.detectedSummary(for: .away).seconds),
+                    color: DetectionState.away.color
                 )
             }
 
@@ -310,19 +320,19 @@ private struct MenuBarSummaryRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.white.opacity(0.10), lineWidth: 7)
+                .stroke(HomeTheme.border, lineWidth: 7)
 
             Circle()
                 .trim(from: 0, to: clampedProgress)
                 .stroke(
-                    MenuBarSummaryPalette.green,
+                    DetectionState.focused.color,
                     style: StrokeStyle(lineWidth: 7, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
 
             Image(systemName: "checkmark")
                 .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(MenuBarSummaryPalette.green)
+                .foregroundStyle(DetectionState.focused.color)
         }
         .padding(4)
     }
@@ -335,17 +345,26 @@ private struct MenuBarTimelineBar: View {
         GeometryReader { geometry in
             if session.segments.isEmpty {
                 RoundedRectangle(cornerRadius: 5)
-                    .fill(Color.white.opacity(0.10))
+                    .fill(HomeTheme.subtleBackground)
             } else {
-                HStack(spacing: 1) {
+                ZStack(alignment: .leading) {
                     ForEach(session.segments) { segment in
                         Rectangle()
-                            .fill(segment.state.menuBarSummaryColor)
-                            .frame(width: max(2, geometry.size.width * segment.duration / max(session.duration, 1)))
+                            .fill(segment.state.color)
+                            .frame(
+                                width: max(
+                                    1,
+                                    min(
+                                        geometry.size.width - segmentX(segment, width: geometry.size.width),
+                                        geometry.size.width * segment.duration / max(session.duration, 1)
+                                    )
+                                )
+                            )
+                            .offset(x: segmentX(segment, width: geometry.size.width))
                             .overlay(alignment: .bottom) {
                                 if segment.userCorrection == .actuallyFocused {
                                     Rectangle()
-                                        .fill(MenuBarSummaryPalette.green)
+                                        .fill(DetectionState.focused.color)
                                         .frame(height: 2)
                                 }
                             }
@@ -354,11 +373,15 @@ private struct MenuBarTimelineBar: View {
                 .clipShape(RoundedRectangle(cornerRadius: 5))
                 .overlay {
                     RoundedRectangle(cornerRadius: 5)
-                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                        .stroke(HomeTheme.border, lineWidth: 1)
                 }
             }
         }
         .accessibilityLabel("Session timeline")
+    }
+
+    private func segmentX(_ segment: StateSegment, width: CGFloat) -> CGFloat {
+        width * segment.startSeconds / max(session.duration, 1)
     }
 }
 
@@ -382,7 +405,7 @@ private struct MenuBarSummaryMetric: View {
 
             Text(value)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeTheme.primaryText)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -390,60 +413,21 @@ private struct MenuBarSummaryMetric: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.055))
+        .background(HomeTheme.subtleBackground)
         .clipShape(RoundedRectangle(cornerRadius: 7))
         .overlay {
             RoundedRectangle(cornerRadius: 7)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(HomeTheme.border, lineWidth: 1)
         }
     }
-}
-
-private struct MenuBarSummaryPalette {
-    static let green = Color(red: 0.10, green: 0.84, blue: 0.38)
-    static let red = Color(red: 0.92, green: 0.20, blue: 0.25)
-    static let orange = Color(red: 1.00, green: 0.49, blue: 0.16)
-    static let blue = Color(red: 0.12, green: 0.38, blue: 0.92)
-    static let purple = Color(red: 0.58, green: 0.25, blue: 0.95)
-    static let gray = Color(red: 0.42, green: 0.49, blue: 0.55)
-}
-
-private extension DetectionState {
-    var menuBarSummaryColor: Color {
-        switch self {
-        case .focused: MenuBarSummaryPalette.green
-        case .away: MenuBarSummaryPalette.red
-        case .lookingDown: MenuBarSummaryPalette.orange
-        case .talking: MenuBarSummaryPalette.blue
-        case .eyesClosed: MenuBarSummaryPalette.purple
-        case .uncertain: MenuBarSummaryPalette.gray
-        }
-    }
-}
-
-private func menuBarPercent(_ value: Double) -> String {
-    "\(Int((value * 100).rounded()))%"
-}
-
-private func compactDuration(_ seconds: TimeInterval) -> String {
-    let total = max(0, Int(seconds.rounded()))
-    let hours = total / 3600
-    let minutes = (total % 3600) / 60
-    let remainingSeconds = total % 60
-
-    if hours > 0 {
-        return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
-    }
-    if minutes > 0 {
-        return "\(minutes)m"
-    }
-    return "\(remainingSeconds)s"
 }
 
 private struct RootWindowChrome<Content: View>: View {
+    let appearanceMode: AppAppearanceMode
     let content: Content
 
-    init(@ViewBuilder content: () -> Content) {
+    init(appearanceMode: AppAppearanceMode, @ViewBuilder content: () -> Content) {
+        self.appearanceMode = appearanceMode
         self.content = content()
     }
 
@@ -455,18 +439,13 @@ private struct RootWindowChrome<Content: View>: View {
             content
         }
         .background(HomeTheme.windowBackground.ignoresSafeArea())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(appearanceMode.colorScheme)
     }
 }
 
 private struct WindowConfigurator: NSViewRepresentable {
     let contentSize: CGSize
-    private let chromeBackground = NSColor(
-        red: 0.016,
-        green: 0.020,
-        blue: 0.030,
-        alpha: 1.0
-    )
+    let appearanceMode: AppAppearanceMode
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -475,7 +454,7 @@ private struct WindowConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         view.wantsLayer = true
-        view.layer?.backgroundColor = chromeBackground.cgColor
+        view.layer?.backgroundColor = HomeTheme.chromeNSColor(for: appearanceMode).cgColor
         DispatchQueue.main.async {
             configureWindow(for: view, context: context)
         }
@@ -483,7 +462,7 @@ private struct WindowConfigurator: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        nsView.layer?.backgroundColor = chromeBackground.cgColor
+        nsView.layer?.backgroundColor = HomeTheme.chromeNSColor(for: appearanceMode).cgColor
         DispatchQueue.main.async {
             configureWindow(for: nsView, context: context)
         }
@@ -491,9 +470,10 @@ private struct WindowConfigurator: NSViewRepresentable {
 
     private func configureWindow(for view: NSView, context: Context) {
         guard let window = view.window else { return }
+        let chromeBackground = HomeTheme.chromeNSColor(for: appearanceMode)
 
         window.title = "FocusMirror"
-        window.appearance = NSAppearance(named: .darkAqua)
+        window.appearance = NSAppearance(named: appearanceMode.nsAppearanceName)
         window.isOpaque = true
         window.backgroundColor = chromeBackground
         window.titlebarAppearsTransparent = false
@@ -526,5 +506,21 @@ private struct WindowConfigurator: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject {
         var hasConfiguredSize = false
+    }
+}
+
+extension AppAppearanceMode {
+    var colorScheme: ColorScheme {
+        switch self {
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+
+    var nsAppearanceName: NSAppearance.Name {
+        switch self {
+        case .light: .aqua
+        case .dark: .darkAqua
+        }
     }
 }

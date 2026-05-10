@@ -1,9 +1,24 @@
 import Foundation
 import Observation
 
+enum AppAppearanceMode: String, CaseIterable, Identifiable {
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class AppModel {
+    private static let appearanceModeDefaultsKey = "appearanceMode"
     private let store: any SessionStoring
     private let engine: any EngineProcessControlling
     private let completionNotifier: any SessionCompletionNotifying
@@ -21,6 +36,11 @@ final class AppModel {
     var selectedLength: SessionLength = .minutes(60)
     var latestCompletedSession: FocusSession?
     var engineError: String?
+    var appearanceMode: AppAppearanceMode = AppModel.storedAppearanceMode() {
+        didSet {
+            UserDefaults.standard.set(appearanceMode.rawValue, forKey: Self.appearanceModeDefaultsKey)
+        }
+    }
 
     init(
         store: any SessionStoring = SessionStore(),
@@ -38,6 +58,14 @@ final class AppModel {
             self.sessions = []
             self.engineError = error.localizedDescription
         }
+    }
+
+    private static func storedAppearanceMode() -> AppAppearanceMode {
+        guard let rawValue = UserDefaults.standard.string(forKey: appearanceModeDefaultsKey),
+              let mode = AppAppearanceMode(rawValue: rawValue) else {
+            return .dark
+        }
+        return mode
     }
 
     var isSessionActive: Bool {

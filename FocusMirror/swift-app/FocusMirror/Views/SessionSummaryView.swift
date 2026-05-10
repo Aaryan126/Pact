@@ -16,62 +16,40 @@ struct SessionSummaryView: View {
     var body: some View {
         Group {
             if let session {
-                VStack(alignment: .leading, spacing: 10) {
-                    SummaryHeader(
-                        session: session,
-                        onBack: onBack,
-                        onExport: { exportCSV(for: session) }
-                    )
-                        .frame(height: 54)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        SummaryReferenceHeader(session: session)
 
-                    HStack(spacing: 12) {
-                        SummaryStatCard(
-                            title: "Screen Focus",
-                            value: formatMinutes(session.screenFocusedSeconds),
-                            suffix: "of \(formatMinutes(session.duration))",
-                            detail: "Screen-facing time before corrections",
-                            accent: SummaryPalette.green,
-                            systemImage: "scope"
-                        )
+                        SummaryMetricGrid(session: session)
+                            .frame(height: 168)
 
-                        SummaryStatCard(
-                            title: "Confirmed Work",
-                            value: formatMinutes(session.confirmedWorkSeconds),
-                            suffix: nil,
-                            detail: session.correctedSeconds > 0 ? "+\(formatMinutes(session.correctedSeconds)) corrected" : "No corrections",
-                            accent: SummaryPalette.purple,
-                            systemImage: "checkmark.circle"
-                        )
+                        ActivityBreakdownPanel(session: session)
+                            .frame(minHeight: 278)
 
-                        SummaryStatCard(
-                            title: "Reviewable",
-                            value: formatMinutes(session.reviewSeconds),
-                            suffix: nil,
-                            detail: "Head down or uncertain",
-                            accent: SummaryPalette.orange,
-                            systemImage: "person.crop.circle"
-                        )
+                        SessionTimelinePanel(session: session)
+                            .frame(minHeight: 158)
                     }
-                    .frame(height: 82)
-
-                    TimelinePanel(session: session)
-                        .frame(height: 68)
-
-                    HStack(alignment: .top, spacing: 12) {
-                        BreakdownPanel(session: session)
-                            .frame(width: 315)
-                            .frame(maxHeight: .infinity)
-
-                        SegmentReviewPanel(session: session)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 166, maxHeight: .infinity)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
+                    .padding(.bottom, 24)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
-                .padding(.bottom, 16)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(HomeTheme.windowBackground.ignoresSafeArea())
+                .toolbar {
+                    ToolbarItemGroup(placement: .navigation) {
+                        Button(action: onBack) {
+                            Image(systemName: "chevron.left")
+                        }
+                        .help("Back to history")
+
+                        Button {
+                            exportCSV(for: session)
+                        } label: {
+                            Image(systemName: "square.and.arrow.down")
+                        }
+                        .help("Export session summary as CSV")
+                    }
+                }
             } else {
                 VStack(spacing: 14) {
                     Image(systemName: "clock.badge.questionmark")
@@ -79,6 +57,7 @@ struct SessionSummaryView: View {
                         .foregroundStyle(HomeTheme.secondaryText)
                     Text("Session not found")
                         .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(HomeTheme.primaryText)
                     Button("Back") {
                         onBack()
                     }
@@ -130,76 +109,6 @@ struct SessionSummaryView: View {
     }
 }
 
-private struct SummaryHeader: View {
-    let session: FocusSession
-    let onBack: () -> Void
-    let onExport: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Button {
-                onBack()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 36, height: 36)
-                    .background(Color.white.opacity(0.055))
-                    .clipShape(Circle())
-                    .overlay {
-                        Circle()
-                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                    }
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Session Summary")
-                    .font(.system(size: 19, weight: .semibold))
-                Text(sessionCompletionDetail(session))
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(HomeTheme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-            }
-
-            Spacer()
-
-            Button(action: onExport) {
-                Image(systemName: "square.and.arrow.down")
-                    .font(.system(size: 20, weight: .semibold))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white)
-            .frame(width: 54, height: 54)
-            .background(Color.white.opacity(0.055))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-            }
-            .accessibilityLabel("Export CSV")
-            .help("Export session summary as CSV")
-
-            FocusBadge(session: session)
-                .frame(width: 260, height: 54)
-        }
-    }
-}
-
-private func sessionCompletionDetail(_ session: FocusSession) -> String {
-    let timestamp = session.startTime.formatted(date: .abbreviated, time: .shortened)
-    if session.completionReason == .targetCompleted, let target = session.targetDurationSeconds {
-        return "Completed \(formatMinutes(target)) target · \(timestamp)"
-    }
-    if session.completionReason == .manual {
-        return "Ended manually · \(timestamp)"
-    }
-    return timestamp
-}
-
 private func sessionCompletionReasonLabel(_ session: FocusSession) -> String {
     switch session.completionReason {
     case .targetCompleted:
@@ -211,342 +120,539 @@ private func sessionCompletionReasonLabel(_ session: FocusSession) -> String {
     }
 }
 
-private struct FocusBadge: View {
+private func durationSortedSummaries(_ summaries: [FocusSessionStateSummary]) -> [FocusSessionStateSummary] {
+    summaries.sorted { lhs, rhs in
+        if lhs.seconds != rhs.seconds {
+            return lhs.seconds > rhs.seconds
+        }
+        return statePresentationIndex(lhs.state) < statePresentationIndex(rhs.state)
+    }
+}
+
+private func statePresentationIndex(_ state: DetectionState) -> Int {
+    DetectionState.allCases.firstIndex(of: state) ?? Int.max
+}
+
+private struct SummaryReferenceHeader: View {
     let session: FocusSession
 
     var body: some View {
-        HStack(spacing: 10) {
-            ProgressRing(progress: session.screenFocusedRatio)
-                .frame(width: 40, height: 40)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Screen Focus")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.primary)
+        HStack(alignment: .top, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Session Summary")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(HomeTheme.primaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-                Text("Before corrections")
-                    .font(.system(size: 11, weight: .medium))
+                    .minimumScaleFactor(0.8)
+
+                Text(formatSessionDateRange(start: session.startTime, end: session.endTime))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(HomeTheme.secondaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+                    .minimumScaleFactor(0.78)
             }
-            .layoutPriority(1)
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 16)
 
-            Image(systemName: "waveform.path.ecg")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(HomeTheme.primaryBlue)
-                .frame(width: 30, height: 30)
-                .background(Color.white.opacity(0.04))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .trailing, spacing: 8) {
+                Text("Total session duration")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(HomeTheme.secondaryText)
+                Text(formatCompactDuration(session.duration))
+                    .font(.system(size: 36, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(HomeTheme.primaryText)
+            }
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .dashboardCard(tint: HomeTheme.primaryBlue, padding: 0)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
-private struct ProgressRing: View {
-    let progress: Double
+private struct SummaryMetricGrid: View {
+    let session: FocusSession
 
-    private var clampedProgress: CGFloat {
-        CGFloat(min(max(progress, 0), 1))
+    private var secondarySummaries: [FocusSessionStateSummary] {
+        Array(
+            durationSortedSummaries(
+                session.detectedStateSummaries.filter { $0.state != .focused }
+            )
+            .prefix(2)
+        )
     }
 
     var body: some View {
-        ZStack {
-            Circle()
-                .stroke(HomeTheme.primaryBlue.opacity(0.22), lineWidth: 4)
-            Circle()
-                .trim(from: 0, to: clampedProgress)
-                .stroke(HomeTheme.primaryBlue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            Text(summaryPercent(progress))
-                .font(.system(size: 8.5, weight: .bold))
-                .foregroundStyle(HomeTheme.primaryBlue)
+        GeometryReader { geometry in
+            let spacing: CGFloat = 18
+            let availableWidth = geometry.size.width
+            let preferredFocusedWidth = availableWidth * 0.44
+            let minimumSecondaryWidth: CGFloat = 250
+            let focusedWidth = min(
+                max(preferredFocusedWidth, 420),
+                max(360, availableWidth - (minimumSecondaryWidth * 2) - (spacing * 2))
+            )
+            let secondaryWidth = max(
+                minimumSecondaryWidth,
+                (availableWidth - focusedWidth - (spacing * 2)) / 2
+            )
+
+            HStack(alignment: .top, spacing: spacing) {
+                FocusedWorkCard(
+                    summary: session.detectedSummary(for: .focused),
+                    width: focusedWidth,
+                    height: geometry.size.height
+                )
+
+                ForEach(secondarySummaries) { summary in
+                    SecondaryMetricCard(
+                        summary: summary,
+                        width: secondaryWidth,
+                        height: geometry.size.height
+                    )
+                }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
         }
-        .padding(2)
     }
 }
 
-private struct SummaryStatCard: View {
-    let title: String
-    let value: String
-    let suffix: String?
-    let detail: String
-    let accent: Color
-    let systemImage: String
+private struct FocusedWorkCard: View {
+    let summary: FocusSessionStateSummary
+    let width: CGFloat
+    let height: CGFloat
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 42) {
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.055))
-                Circle()
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                Image(systemName: systemImage)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(accent.opacity(0.78))
+                    .fill(summary.state.color.opacity(0.13))
+                Image(systemName: "scope")
+                    .font(.system(size: 50, weight: .regular))
+                    .foregroundStyle(summary.state.color)
             }
-            .frame(width: 38, height: 38)
+            .frame(width: 104, height: 104)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(HomeTheme.secondaryText)
-                    .textCase(.uppercase)
-
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text(value)
-                        .font(.system(size: 21, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-
-                    if let suffix {
-                        Text(suffix)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(HomeTheme.secondaryText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.82)
-                    }
-                }
-
-                Text(detail)
-                    .font(.system(size: 11.8, weight: .medium))
-                    .foregroundStyle(HomeTheme.secondaryText)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Focused Work")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(HomeTheme.primaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+
+                Text(formatCompactDuration(summary.seconds))
+                    .font(.system(size: 42, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(HomeTheme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
 
             Spacer(minLength: 0)
         }
-        .summaryMetricCard(accent: accent)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(.horizontal, 32)
+        .frame(width: width, height: height, alignment: .leading)
+        .summaryCard(stroke: summary.state.color.opacity(0.34), fill: summary.state.color.opacity(0.045))
     }
 }
 
-private struct TimelinePanel: View {
-    let session: FocusSession
+private struct SecondaryMetricCard: View {
+    let summary: FocusSessionStateSummary
+    let width: CGFloat
+    let height: CGFloat
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Timeline")
-                    .font(.system(size: 14, weight: .semibold))
-                Spacer()
-                Text(formatClock(session.duration))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(HomeTheme.secondaryText)
-                    .monospacedDigit()
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(summary.state.color)
+                    .frame(width: 17, height: 17)
+                Text(summary.state.label)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(HomeTheme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
             }
 
-            TimelineBar(session: session)
-                .frame(height: 15)
+            Text(formatCompactDuration(summary.seconds))
+                .font(.system(size: 38, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(HomeTheme.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
-        .dashboardCard(tint: Color.white.opacity(0.12), padding: 13)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(.horizontal, 42)
+        .frame(width: width, height: height, alignment: .leading)
+        .summaryCard(stroke: HomeTheme.border, fill: .clear)
     }
 }
 
-private struct TimelineBar: View {
+private struct ActivityBreakdownPanel: View {
     let session: FocusSession
+
+    private var rows: [FocusSessionStateSummary] {
+        durationSortedSummaries(session.detectedStateSummaries)
+    }
+
+    private var uncertainSummary: FocusSessionStateSummary {
+        session.detectedSummary(for: .uncertain)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text("Activity breakdown")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(HomeTheme.primaryText)
+
+                Spacer()
+
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(DetectionState.uncertain.color)
+                        .frame(width: 10, height: 10)
+                    Text("Uncertain: \(formatCompactDuration(uncertainSummary.seconds)) (\(formatWholePercent(uncertainSummary.ratio)))")
+                        .font(.system(size: 14, weight: .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .foregroundStyle(HomeTheme.secondaryText)
+            }
+
+            StateDistributionBar(rows: rows)
+                .frame(height: 22)
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text("State")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Duration")
+                        .frame(width: 170, alignment: .leading)
+                    Text("% of session")
+                        .frame(width: 130, alignment: .trailing)
+                }
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(HomeTheme.secondaryText)
+                .padding(.horizontal, 4)
+                .padding(.bottom, 8)
+
+                ForEach(rows) { row in
+                    HStack {
+                        HStack(spacing: 13) {
+                            Circle()
+                                .fill(row.state.color)
+                                .frame(width: 13, height: 13)
+                            Text(row.state.label)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(HomeTheme.primaryText)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Text(formatCompactDuration(row.seconds))
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(HomeTheme.primaryText)
+                            .monospacedDigit()
+                            .frame(width: 170, alignment: .leading)
+
+                        Text(formatWholePercent(row.ratio))
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(HomeTheme.primaryText)
+                            .monospacedDigit()
+                            .frame(width: 130, alignment: .trailing)
+                    }
+                    .padding(.horizontal, 4)
+                    .frame(height: 29)
+                    .overlay(alignment: .bottom) {
+                        Rectangle()
+                            .fill(HomeTheme.divider)
+                            .frame(height: 1)
+                            .opacity(row.id == rows.last?.id ? 0 : 1)
+                    }
+                }
+            }
+        }
+        .padding(24)
+        .summaryCard(stroke: HomeTheme.border, fill: .clear)
+    }
+}
+
+private struct StateDistributionBar: View {
+    let rows: [FocusSessionStateSummary]
+
+    private var nonZeroRows: [FocusSessionStateSummary] {
+        rows.filter { $0.seconds > 0 }
+    }
 
     var body: some View {
         GeometryReader { geometry in
-            if session.segments.isEmpty {
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(Color.white.opacity(0.08))
-                    .overlay(alignment: .leading) {
-                        Text("No classifications")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(HomeTheme.secondaryText)
-                            .padding(.leading, 8)
-                    }
+            if nonZeroRows.isEmpty {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(HomeTheme.subtleBackground)
             } else {
-                HStack(spacing: 1) {
-                    ForEach(session.segments) { segment in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(HomeTheme.subtleBackground)
+
+                    HStack(spacing: 0) {
+                        ForEach(nonZeroRows) { row in
+                            Rectangle()
+                                .fill(row.state.color)
+                                .frame(width: segmentWidth(row, totalWidth: geometry.size.width))
+                        }
+                    }
+                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(HomeTheme.border, lineWidth: 1)
+                }
+            }
+        }
+        .accessibilityLabel("Activity breakdown")
+    }
+
+    private func segmentWidth(_ row: FocusSessionStateSummary, totalWidth: CGFloat) -> CGFloat {
+        min(totalWidth, max(1, totalWidth * row.ratio))
+    }
+}
+
+private struct SessionTimelinePanel: View {
+    let session: FocusSession
+
+    private var highlightedSegment: StateSegment? {
+        session.segments
+            .filter { !$0.state.countsAsFocused }
+            .max { $0.duration < $1.duration }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Session timeline")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(HomeTheme.primaryText)
+
+            TimelineTickLabels(session: session)
+                .frame(height: 24)
+
+            ProportionalTimelineBar(session: session)
+                .frame(height: 24)
+
+            HStack(alignment: .top, spacing: 16) {
+                TimelineCallout(
+                    color: DetectionState.focused.color,
+                    title: formattedTimelineTime(session.startTime),
+                    subtitle: "Session start",
+                    alignment: .leading
+                )
+
+                Spacer(minLength: 16)
+
+                if let highlightedSegment {
+                    TimelineCallout(
+                        color: highlightedSegment.state.color,
+                        title: "\(formattedTimelineTime(session.startTime.addingTimeInterval(highlightedSegment.startSeconds))) - \(formattedTimelineTime(session.startTime.addingTimeInterval(highlightedSegment.endSeconds)))",
+                        subtitle: highlightedSegment.state.label,
+                        alignment: .center
+                    )
+                    .frame(maxWidth: 260)
+                }
+
+                Spacer(minLength: 16)
+
+                TimelineCallout(
+                    color: DetectionState.uncertain.color,
+                    title: formattedTimelineTime(session.endTime),
+                    subtitle: "Session end",
+                    alignment: .trailing
+                )
+            }
+        }
+        .padding(24)
+        .summaryCard(stroke: HomeTheme.border, fill: .clear)
+    }
+}
+
+private struct TimelineTickLabels: View {
+    let session: FocusSession
+
+    private var ticks: [TimelineTick] {
+        timelineTicks(for: session)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .topLeading) {
+                ForEach(ticks) { tick in
+                    Text(tick.label)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(HomeTheme.secondaryText)
+                        .lineLimit(1)
+                        .position(
+                            x: clampedTickX(tick.offset, width: geometry.size.width),
+                            y: 10
+                        )
+                }
+            }
+        }
+    }
+
+    private func clampedTickX(_ offset: TimeInterval, width: CGFloat) -> CGFloat {
+        let x = width * offset / max(session.duration, 1)
+        return min(max(x, 28), max(28, width - 28))
+    }
+}
+
+private struct ProportionalTimelineBar: View {
+    let session: FocusSession
+
+    private var orderedSegments: [StateSegment] {
+        session.segments.sorted { lhs, rhs in
+            if lhs.startSeconds != rhs.startSeconds {
+                return lhs.startSeconds < rhs.startSeconds
+            }
+            return lhs.endSeconds < rhs.endSeconds
+        }
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            if orderedSegments.isEmpty {
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(HomeTheme.subtleBackground)
+            } else {
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(HomeTheme.subtleBackground)
+
+                    ForEach(orderedSegments) { segment in
+                        let segmentX = segmentX(segment, width: geometry.size.width)
+                        let segmentWidth = segmentWidth(segment, width: geometry.size.width)
                         Rectangle()
-                            .fill(segment.state.summaryColor)
-                            .frame(width: max(2, geometry.size.width * segment.duration / max(session.duration, 1)))
-                            .overlay(alignment: .bottom) {
-                                if segment.userCorrection == .actuallyFocused {
-                                    Rectangle()
-                                        .fill(SummaryPalette.green)
-                                        .frame(height: 3)
-                                }
-                            }
-                            .help(timelineHelp(for: segment))
+                            .fill(segment.state.color)
+                            .frame(width: segmentWidth, height: geometry.size.height)
+                            .position(x: segmentX + (segmentWidth / 2), y: geometry.size.height / 2)
+                            .help("\(segment.state.label), \(formatCompactDuration(segment.duration))")
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 5))
                 .overlay {
                     RoundedRectangle(cornerRadius: 5)
-                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                        .stroke(HomeTheme.border, lineWidth: 1)
                 }
             }
         }
         .accessibilityLabel("Session timeline")
     }
 
-    private func timelineHelp(for segment: StateSegment) -> String {
-        var parts = [segment.state.label, formatMinutes(segment.duration)]
-        if let correction = segment.userCorrection {
-            parts.append(correction.label)
-        }
-        return parts.joined(separator: ", ")
+    private func segmentX(_ segment: StateSegment, width: CGFloat) -> CGFloat {
+        min(max(0, width * segment.startSeconds / max(session.duration, 1)), width)
+    }
+
+    private func segmentWidth(_ segment: StateSegment, width: CGFloat) -> CGFloat {
+        max(1, min(width - segmentX(segment, width: width), width * segment.duration / max(session.duration, 1)))
     }
 }
 
-private struct BreakdownPanel: View {
-    let session: FocusSession
-
-    private var rows: [(state: DetectionState, value: (count: Int, seconds: TimeInterval))] {
-        let breakdown = session.breakdown()
-        return DetectionState.allCases.map { state in
-            (state, breakdown[state] ?? (0, 0))
-        }
-    }
+private struct TimelineCallout: View {
+    let color: Color
+    let title: String
+    let subtitle: String
+    let alignment: HorizontalAlignment
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text("Breakdown")
-                .font(.system(size: 14, weight: .semibold))
+        HStack(alignment: .top, spacing: 12) {
+            Circle()
+                .fill(color)
+                .frame(width: 9, height: 9)
+                .padding(.top, 4)
 
-            VStack(spacing: 0) {
-                ForEach(rows, id: \.state.id) { row in
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(row.state.summaryColor)
-                            .frame(width: 8, height: 8)
-                        Text(row.state.label)
-                            .font(.system(size: 11.5, weight: .medium))
-                            .lineLimit(1)
-                        Spacer()
-                        Text("\(row.value.count)x")
-                            .font(.system(size: 11.5, weight: .medium))
-                            .foregroundStyle(HomeTheme.secondaryText)
-                            .monospacedDigit()
-                            .frame(width: 28, alignment: .trailing)
-                        Text(formatMinutes(row.value.seconds))
-                            .font(.system(size: 11.5, weight: .medium))
-                            .foregroundStyle(HomeTheme.secondaryText)
-                            .frame(width: 66, alignment: .trailing)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
-                    }
-                    .frame(maxHeight: .infinity, alignment: .center)
-                    .overlay(alignment: .bottom) {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.055))
-                            .frame(height: 1)
-                            .opacity(row.state == DetectionState.allCases.last ? 0 : 1)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .dashboardCard(tint: Color.white.opacity(0.12), padding: 12)
-    }
-}
-
-private struct SegmentReviewPanel: View {
-    @Environment(AppModel.self) private var model
-    let session: FocusSession
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
-                Text("Segments")
-                    .font(.system(size: 14, weight: .semibold))
-                Spacer()
-                Text("\(formatMinutes(session.correctedSeconds)) corrected")
-                    .font(.system(size: 12, weight: .medium))
+            VStack(alignment: alignment, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(HomeTheme.secondaryText)
-            }
-
-            if session.segments.isEmpty {
-                Text("No classified segments for this session.")
-                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Text(subtitle)
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(HomeTheme.secondaryText)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(session.segments) { segment in
-                            segmentRow(segment)
-                        }
-                    }
-                    .padding(.trailing, 2)
-                }
-                .scrollIndicators(.hidden)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
-        }
-        .dashboardCard(tint: Color.white.opacity(0.12), padding: 13)
-    }
-
-    private func segmentRow(_ segment: StateSegment) -> some View {
-        let isAlreadyFocused = segment.state == .focused || segment.userCorrection == .actuallyFocused
-
-        return HStack(spacing: 11) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("\(formatClock(segment.startSeconds))-\(formatClock(segment.endSeconds))")
-                    .font(.system(size: 14, weight: .semibold))
-                    .monospacedDigit()
-
-                HStack(spacing: 7) {
-                    Text(segment.state.label)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(HomeTheme.secondaryText)
-                        .lineLimit(1)
-
-                    Text("\(Int(segment.confidence * 100))%")
-                        .font(.system(size: 10.5, weight: .bold))
-                        .foregroundStyle(segment.state.summaryColor)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(segment.state.summaryColor.opacity(0.16))
-                        .clipShape(Capsule())
-                }
-            }
-
-            Spacer()
-
-            Button {
-                let correction: SegmentCorrection? = segment.userCorrection == .actuallyFocused ? nil : .actuallyFocused
-                model.update(segmentID: segment.id, in: session.id, correction: correction)
-            } label: {
-                Text(segment.userCorrection == .actuallyFocused ? "Undo" : "Focused")
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 58, height: 27)
-                    .contentShape(RoundedRectangle(cornerRadius: 7))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(isAlreadyFocused ? SummaryPalette.green : HomeTheme.primaryBlue)
-            .background((isAlreadyFocused ? SummaryPalette.green : HomeTheme.primaryBlue).opacity(0.14))
-            .clipShape(RoundedRectangle(cornerRadius: 7))
-            .disabled(segment.state == .focused && segment.userCorrection != .actuallyFocused)
-            .opacity(segment.state == .focused && segment.userCorrection != .actuallyFocused ? 0.95 : 1)
-        }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .background(Color.white.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 9))
-        .overlay {
-            RoundedRectangle(cornerRadius: 9)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
         }
     }
 }
 
-private struct SummaryPalette {
-    static let green = Color(red: 0.10, green: 0.84, blue: 0.38)
-    static let red = Color(red: 0.92, green: 0.20, blue: 0.25)
-    static let orange = Color(red: 1.00, green: 0.49, blue: 0.16)
-    static let blue = Color(red: 0.12, green: 0.38, blue: 0.92)
-    static let purple = Color(red: 0.58, green: 0.25, blue: 0.95)
-    static let gray = Color(red: 0.42, green: 0.49, blue: 0.55)
+private struct TimelineTick: Identifiable {
+    let offset: TimeInterval
+    let label: String
+
+    var id: TimeInterval { offset }
+}
+
+private func timelineTicks(for session: FocusSession) -> [TimelineTick] {
+    let total = max(session.duration, 0)
+    guard total > 0 else {
+        return [TimelineTick(offset: 0, label: formattedTimelineTime(session.startTime))]
+    }
+
+    let interval: TimeInterval
+    switch total {
+    case ...900:
+        interval = 300
+    case ...3600:
+        interval = 900
+    case ...10800:
+        interval = 1800
+    case ...28800:
+        interval = 3600
+    default:
+        interval = 7200
+    }
+
+    var offsets: [TimeInterval] = [0]
+    var next = interval
+    while next < total {
+        offsets.append(next)
+        next += interval
+    }
+    if offsets.last.map({ abs($0 - total) > 1 }) ?? true {
+        offsets.append(total)
+    }
+
+    return offsets.map { offset in
+        TimelineTick(
+            offset: offset,
+            label: formattedTimelineTime(session.startTime.addingTimeInterval(offset))
+        )
+    }
+}
+
+private func formattedTimelineTime(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale.current
+    formatter.dateStyle = .none
+    formatter.timeStyle = .short
+    return formatter.string(from: date)
+}
+
+private extension View {
+    func summaryCard(stroke: Color, fill: Color) -> some View {
+        self
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background {
+                ZStack {
+                    HomeTheme.cardBackground
+                    fill
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(stroke, lineWidth: 1)
+            }
+            .shadow(color: HomeTheme.shadow, radius: 12, x: 0, y: 6)
+    }
 }
 
 private enum SessionSummaryCSVExporter {
@@ -609,12 +715,12 @@ private enum SessionSummaryCSVExporter {
         ))
         rows.append(row(
             section: "Focus Summary",
-            item: "Screen Focused",
+            item: "Focused Work",
             duration: session.screenFocusedSeconds,
             seconds: session.screenFocusedSeconds,
             percent: ratio(session.screenFocusedSeconds, of: totalDuration),
             state: DetectionState.focused.label,
-            notes: "Raw screen-facing focus before corrections"
+            notes: "Raw focused time before corrections"
         ))
         rows.append(row(
             section: "Focus Summary",
@@ -641,7 +747,7 @@ private enum SessionSummaryCSVExporter {
             duration: session.reviewSeconds,
             seconds: session.reviewSeconds,
             percent: ratio(session.reviewSeconds, of: totalDuration),
-            notes: "Head down or uncertain time"
+            notes: "Looking down or uncertain time"
         ))
 
         let detectedBreakdown = session.breakdown()
@@ -781,66 +887,4 @@ private enum SessionSummaryCSVExporter {
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZZ"
         return formatter.string(from: date)
     }
-}
-
-private extension DetectionState {
-    var summaryColor: Color {
-        switch self {
-        case .focused: SummaryPalette.green
-        case .away: SummaryPalette.red
-        case .lookingDown: SummaryPalette.orange
-        case .talking: SummaryPalette.blue
-        case .eyesClosed: SummaryPalette.purple
-        case .uncertain: SummaryPalette.gray
-        }
-    }
-}
-
-private extension View {
-    func summaryMetricCard(accent: Color, padding: CGFloat = 14) -> some View {
-        self
-            .padding(padding)
-            .padding(.leading, 4)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background {
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.070),
-                        Color.white.opacity(0.035)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-            }
-    }
-
-    func dashboardCard(tint: Color, padding: CGFloat = 14) -> some View {
-        self
-            .padding(padding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background {
-                LinearGradient(
-                    colors: [
-                        tint.opacity(0.14),
-                        Color.white.opacity(0.045)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(tint.opacity(0.35), lineWidth: 1)
-            }
-    }
-}
-
-private func summaryPercent(_ value: Double) -> String {
-    "\(Int((value * 100).rounded()))%"
 }

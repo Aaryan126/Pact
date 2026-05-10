@@ -11,6 +11,70 @@ final class AppModelTests: XCTestCase {
         )
     }
 
+    func testAppearanceModeDefaultsToDarkAndPersistsSelection() {
+        let defaultsKey = "appearanceMode"
+        let previousValue = UserDefaults.standard.string(forKey: defaultsKey)
+        defer {
+            if let previousValue {
+                UserDefaults.standard.set(previousValue, forKey: defaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: defaultsKey)
+            }
+        }
+
+        UserDefaults.standard.removeObject(forKey: defaultsKey)
+        let initialModel = AppModel(store: MockSessionStore(), engine: MockEngine(), completionNotifier: MockCompletionNotifier())
+        XCTAssertEqual(initialModel.appearanceMode, .dark)
+
+        initialModel.appearanceMode = .light
+        let reloadedModel = AppModel(store: MockSessionStore(), engine: MockEngine(), completionNotifier: MockCompletionNotifier())
+        XCTAssertEqual(reloadedModel.appearanceMode, .light)
+    }
+
+    func testDetectionStatePresentationOrderAndLabelsMatchSummaryUI() {
+        XCTAssertEqual(
+            DetectionState.allCases.map(\.label),
+            [
+                "Focused",
+                "Looking Down",
+                "Away From Screen",
+                "Talking",
+                "Eyes Closed",
+                "Uncertain"
+            ]
+        )
+    }
+
+    func testDetectedStateSummariesUseCanonicalOrderAndSessionDuration() {
+        let session = FocusSession(
+            startTime: Date(timeIntervalSince1970: 0),
+            endTime: Date(timeIntervalSince1970: 135 * 60),
+            targetDurationSeconds: nil,
+            segments: [
+                StateSegment(startSeconds: 0, endSeconds: 94 * 60, state: .focused, confidence: 0.9),
+                StateSegment(startSeconds: 94 * 60, endSeconds: 112 * 60, state: .lookingDown, confidence: 0.8),
+                StateSegment(startSeconds: 112 * 60, endSeconds: 123 * 60, state: .away, confidence: 0.8),
+                StateSegment(startSeconds: 123 * 60, endSeconds: 129 * 60, state: .talking, confidence: 0.7),
+                StateSegment(startSeconds: 129 * 60, endSeconds: 131 * 60, state: .eyesClosed, confidence: 0.7),
+                StateSegment(startSeconds: 131 * 60, endSeconds: 135 * 60, state: .uncertain, confidence: 0.5)
+            ]
+        )
+
+        let summaries = session.detectedStateSummaries
+        XCTAssertEqual(summaries.map(\.state), DetectionState.allCases)
+        XCTAssertEqual(summaries.map { Int($0.seconds / 60) }, [94, 18, 11, 6, 2, 4])
+        XCTAssertEqual(formatWholePercent(session.detectedSummary(for: .focused).ratio), "70%")
+        XCTAssertEqual(formatWholePercent(session.detectedSummary(for: .lookingDown).ratio), "13%")
+        XCTAssertEqual(formatWholePercent(session.detectedSummary(for: .away).ratio), "8%")
+    }
+
+    func testCompactDurationFormattingMatchesSummaryDesign() {
+        XCTAssertEqual(formatCompactDuration(0), "0s")
+        XCTAssertEqual(formatCompactDuration(18 * 60), "18m")
+        XCTAssertEqual(formatCompactDuration(94 * 60), "1h 34m")
+        XCTAssertEqual(formatCompactDuration(135 * 60), "2h 15m")
+    }
+
     func testLegacySessionJSONDecodesWithoutCompletionReason() throws {
         let json = """
         [{

@@ -10,9 +10,10 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("FocusMirror")
                     .font(.system(size: 44, weight: .semibold))
-                Text("An honest mirror of screen focus and confirmed work time.")
+                    .foregroundStyle(HomeTheme.primaryText)
+                Text("An honest mirror of focused work time.")
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HomeTheme.secondaryText)
             }
 
             VStack(alignment: .leading, spacing: 14) {
@@ -42,7 +43,7 @@ struct OnboardingView: View {
 
                 if permissionStatus == .denied || permissionStatus == .restricted {
                     Text("Camera permission is required to measure sessions.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(HomeTheme.secondaryText)
                 }
             }
             Spacer()
@@ -64,8 +65,9 @@ private struct PrivacyFactRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.headline)
+                    .foregroundStyle(HomeTheme.primaryText)
                 Text(detail)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HomeTheme.secondaryText)
             }
         }
     }

@@ -10,6 +10,7 @@ struct HistoryView: View {
             HStack {
                 Text("History")
                     .font(.system(size: 23, weight: .semibold))
+                    .foregroundStyle(HomeTheme.primaryText)
 
                 Spacer()
 
@@ -66,10 +67,10 @@ struct HistoryView: View {
             HStack(alignment: .center, spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.white.opacity(0.045))
+                        .fill(HomeTheme.subtleBackground)
                         .overlay {
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                                .stroke(HomeTheme.border, lineWidth: 1)
                         }
 
                     Image(systemName: "calendar")
@@ -86,7 +87,7 @@ struct HistoryView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
                         .allowsTightening(true)
-                    Text("\(Int((session.screenFocusedRatio * 100).rounded()))% screen focus")
+                    Text("\(formatWholePercent(session.screenFocusedRatio)) focused")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(HomeTheme.secondaryText)
                         .lineLimit(1)
@@ -111,7 +112,7 @@ struct HistoryView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay {
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                    .stroke(HomeTheme.border, lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
