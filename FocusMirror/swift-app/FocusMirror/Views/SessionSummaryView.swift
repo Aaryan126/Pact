@@ -163,7 +163,7 @@ private struct SummaryTitlebarControls: NSViewRepresentable {
             }
 
             let hostingView = NSHostingView(rootView: controls)
-            hostingView.frame = NSRect(x: 0, y: 0, width: 76, height: 30)
+            hostingView.frame = NSRect(x: 0, y: 0, width: 86, height: 34)
             let accessory = NSTitlebarAccessoryViewController()
             accessory.view = hostingView
             accessory.layoutAttribute = .right
@@ -174,10 +174,9 @@ private struct SummaryTitlebarControls: NSViewRepresentable {
         }
 
         func remove() {
-            if let accessory, let window {
-                if let index = window.titlebarAccessoryViewControllers.firstIndex(where: { $0 === accessory }) {
-                    window.removeTitlebarAccessoryViewController(at: index)
-                }
+            if let accessory, let window,
+               let index = window.titlebarAccessoryViewControllers.firstIndex(where: { $0 === accessory }) {
+                window.removeTitlebarAccessoryViewController(at: index)
             }
             accessory = nil
             hostingView = nil
@@ -191,26 +190,48 @@ private struct SummaryTitlebarControlButtons: View {
     let onExport: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
-            Button(action: onHome) {
-                Image(systemName: "house")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(HomeTheme.secondaryText)
-            .help("Home")
+        HStack(spacing: 0) {
+            SummaryTitlebarIconButton(systemName: "house", help: "Home", action: onHome)
 
-            Button(action: onExport) {
-                Image(systemName: "square.and.arrow.down")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(HomeTheme.secondaryText)
-            .help("Export session summary as CSV")
+            Rectangle()
+                .fill(HomeTheme.controlStroke)
+                .frame(width: 1, height: 17)
+                .padding(.horizontal, 1)
+
+            SummaryTitlebarIconButton(
+                systemName: "square.and.arrow.down",
+                help: "Export session summary as CSV",
+                action: onExport
+            )
         }
-        .frame(width: 76, height: 30)
+        .padding(.horizontal, 6)
+        .frame(width: 76, height: 24)
+        .background(HomeTheme.controlBackground)
+        .clipShape(Capsule())
+        .overlay {
+            Capsule()
+                .stroke(HomeTheme.controlStroke, lineWidth: 1)
+        }
+        .frame(width: 86, height: 34, alignment: .center)
+    }
+}
+
+private struct SummaryTitlebarIconButton: View {
+    let systemName: String
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 12.5, weight: .semibold))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(HomeTheme.primaryText)
+                .frame(width: 27, height: 24)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 }
 

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 private let mainWindowIdentifier = NSUserInterfaceItemIdentifier("FocusMirrorMainWindow")
@@ -491,6 +492,7 @@ private struct WindowConfigurator: NSViewRepresentable {
         window.contentView?.layer?.backgroundColor = chromeBackground.cgColor
 
         showNativeTrafficLights(in: window)
+        context.coordinator.installTitlebarHeightAccessory(in: window)
 
         if !context.coordinator.hasConfiguredSize {
             context.coordinator.hasConfiguredSize = true
@@ -509,6 +511,37 @@ private struct WindowConfigurator: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject {
         var hasConfiguredSize = false
+        private weak var window: NSWindow?
+        private var titlebarHeightAccessory: NSTitlebarAccessoryViewController?
+
+        func installTitlebarHeightAccessory(in window: NSWindow) {
+            if self.window !== window {
+                removeTitlebarHeightAccessory()
+                self.window = window
+            }
+
+            guard titlebarHeightAccessory == nil else { return }
+
+            let spacerView = NSView(frame: NSRect(x: 0, y: 0, width: 1, height: 54))
+            spacerView.wantsLayer = true
+            spacerView.layer?.backgroundColor = NSColor.clear.cgColor
+            spacerView.alphaValue = 0
+
+            let accessory = NSTitlebarAccessoryViewController()
+            accessory.view = spacerView
+            accessory.layoutAttribute = .right
+            window.addTitlebarAccessoryViewController(accessory)
+
+            titlebarHeightAccessory = accessory
+        }
+
+        private func removeTitlebarHeightAccessory() {
+            if let titlebarHeightAccessory, let window,
+               let index = window.titlebarAccessoryViewControllers.firstIndex(where: { $0 === titlebarHeightAccessory }) {
+                window.removeTitlebarAccessoryViewController(at: index)
+            }
+            titlebarHeightAccessory = nil
+        }
     }
 }
 
