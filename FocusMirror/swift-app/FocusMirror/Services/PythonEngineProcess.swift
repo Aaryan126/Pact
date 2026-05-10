@@ -59,7 +59,7 @@ final class PythonEngineProcess: EngineProcessControlling {
         var environment = ProcessInfo.processInfo.environment
         environment["PYTHONPATH"] = engineRoot.path
         environment["PYTHONUNBUFFERED"] = "1"
-        environment["MPLCONFIGDIR"] = NSTemporaryDirectory()
+        environment["MPLCONFIGDIR"] = Self.matplotlibConfigDirectory().path
         process.environment = environment
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
@@ -280,6 +280,16 @@ final class PythonEngineProcess: EngineProcessControlling {
             ]
         }
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
+    }
+
+    private static func matplotlibConfigDirectory() -> URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        let directory = base
+            .appendingPathComponent("FocusMirror", isDirectory: true)
+            .appendingPathComponent("matplotlib", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
     }
 }
 

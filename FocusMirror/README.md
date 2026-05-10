@@ -32,7 +32,15 @@ swift build --package-path swift-app
 ./build/bundle.sh
 ```
 
-Set `FOCUSMIRROR_VENDOR_PYTHON=1` to create a bundled Python runtime under `Contents/Frameworks/python-runtime` and install the Python engine into it. Release builds do not fall back to system Python at runtime.
+Set `FOCUSMIRROR_VENDOR_PYTHON=1` to create a bundled Python runtime under `Contents/Resources/python-runtime` and install the Python engine into it. Release builds do not fall back to system Python at runtime.
+
+After building a vendored local bundle, verify the app signature with:
+
+```sh
+codesign --verify --strict --verbose=2 build/FocusMirror.app
+```
+
+The bundler signs Mach-O binaries inside the vendored Python runtime before signing the app bundle. Avoid `codesign --deep` for this local verification path because the Python standard library contains versioned folders and helper scripts that are not nested app bundles.
 
 ## Privacy Defaults
 

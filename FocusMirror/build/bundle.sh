@@ -8,6 +8,7 @@ CONTENTS="$APP/Contents"
 MACOS="$CONTENTS/MacOS"
 RESOURCES="$CONTENTS/Resources"
 FRAMEWORKS="$CONTENTS/Frameworks"
+PYTHON_RUNTIME="$RESOURCES/python-runtime"
 
 export HOME="$ROOT/build/home"
 export CLANG_MODULE_CACHE_PATH="$ROOT/build/module-cache"
@@ -33,21 +34,36 @@ rsync -a --delete \
   "$ROOT/python-engine/" "$RESOURCES/python-engine/"
 
 if [[ "${FOCUSMIRROR_VENDOR_PYTHON:-0}" == "1" ]]; then
-  python3 -m venv --copies "$FRAMEWORKS/python-runtime"
-  "$FRAMEWORKS/python-runtime/bin/python3" -m pip install --upgrade pip
-  "$FRAMEWORKS/python-runtime/bin/python3" -m pip install "$ROOT/python-engine"
+  python3 -m venv --copies "$PYTHON_RUNTIME"
+  "$PYTHON_RUNTIME/bin/python3" -m pip install --upgrade pip
+  "$PYTHON_RUNTIME/bin/python3" -m pip install "$ROOT/python-engine"
+  find "$PYTHON_RUNTIME" -name "__pycache__" -type d -prune -exec rm -rf {} +
+  find "$PYTHON_RUNTIME" -name "tests" -type d -prune -exec rm -rf {} +
+  find "$PYTHON_RUNTIME" -name "*.pyc" -type f -delete
+  while IFS= read -r -d '' file; do
+    if ! file "$file" | grep -q "Mach-O"; then
+      chmod a-x "$file"
+    fi
+  done < <(find "$PYTHON_RUNTIME" -type f -perm -111 -print0)
 else
   echo "Warning: Python runtime not vendored. Release builds require FOCUSMIRROR_VENDOR_PYTHON=1."
 fi
 
 if command -v codesign >/dev/null 2>&1; then
-  if [[ -d "$FRAMEWORKS/python-runtime" ]]; then
+  sign_macho_files() {
+    local root="$1"
     while IFS= read -r -d '' file; do
-      codesign --force --sign - "$file" >/dev/null 2>&1 || true
-    done < <(find "$FRAMEWORKS/python-runtime" -type f \( -perm -111 -o -name "*.dylib" -o -name "*.so" \) -print0)
+      if file "$file" | grep -q "Mach-O"; then
+        codesign --force --sign - "$file"
+      fi
+    done < <(find "$root" -type f -print0)
+  }
+
+  if [[ -d "$PYTHON_RUNTIME" ]]; then
+    sign_macho_files "$PYTHON_RUNTIME"
   fi
 
-  codesign --force --deep --sign - \
+  codesign --force --sign - \
     --entitlements "$SWIFT_APP/FocusMirror/FocusMirror.entitlements" \
     "$APP"
 fi
