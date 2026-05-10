@@ -625,29 +625,6 @@ private struct StateDistributionBar: View {
 private struct SessionTimelinePanel: View {
     let session: FocusSession
 
-    private var orderedSegments: [StateSegment] {
-        session.segments.sorted { lhs, rhs in
-            if lhs.startSeconds != rhs.startSeconds {
-                return lhs.startSeconds < rhs.startSeconds
-            }
-            return lhs.endSeconds < rhs.endSeconds
-        }
-    }
-
-    private var startingState: DetectionState {
-        orderedSegments.first?.state ?? .focused
-    }
-
-    private var endingState: DetectionState {
-        orderedSegments.last?.state ?? .uncertain
-    }
-
-    private var highlightedSegment: StateSegment? {
-        orderedSegments
-            .filter { !$0.state.countsAsFocused }
-            .max { $0.duration < $1.duration }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Session timeline")
@@ -659,33 +636,6 @@ private struct SessionTimelinePanel: View {
 
             ProportionalTimelineBar(session: session)
                 .frame(height: 24)
-
-            HStack(alignment: .top, spacing: 16) {
-                TimelineCallout(
-                    title: formattedTimelineTime(session.startTime),
-                    state: startingState,
-                    alignment: .leading
-                )
-
-                Spacer(minLength: 16)
-
-                if let highlightedSegment {
-                    TimelineCallout(
-                        title: "\(formattedTimelineTime(session.startTime.addingTimeInterval(highlightedSegment.startSeconds))) - \(formattedTimelineTime(session.startTime.addingTimeInterval(highlightedSegment.endSeconds)))",
-                        state: highlightedSegment.state,
-                        alignment: .leading
-                    )
-                    .frame(maxWidth: 260)
-                }
-
-                Spacer(minLength: 16)
-
-                TimelineCallout(
-                    title: formattedTimelineTime(session.endTime),
-                    state: endingState,
-                    alignment: .trailing
-                )
-            }
         }
         .padding(24)
         .summaryCard(stroke: HomeTheme.border, fill: .clear)
@@ -770,31 +720,6 @@ private struct ProportionalTimelineBar: View {
 
     private func segmentWidth(_ segment: StateSegment, width: CGFloat) -> CGFloat {
         max(1, min(width - segmentX(segment, width: width), width * segment.duration / max(session.duration, 1)))
-    }
-}
-
-private struct TimelineCallout: View {
-    let title: String
-    let state: DetectionState
-    let alignment: HorizontalAlignment
-
-    var body: some View {
-        VStack(alignment: alignment, spacing: 3) {
-            Text(title)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(HomeTheme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-            Text(timelineStateLabel(for: state))
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(state.color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-        }
-    }
-
-    private func timelineStateLabel(for state: DetectionState) -> String {
-        state == .focused ? "Focused" : state.label
     }
 }
 
