@@ -18,10 +18,15 @@ struct SessionSummaryView: View {
             if let session {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        SummaryReferenceHeader(session: session)
+                        SummaryReferenceHeader(
+                            session: session,
+                            onHome: onBack,
+                            onExport: { exportCSV(for: session) }
+                        )
 
                         SummaryMetricGrid(session: session)
                             .frame(height: 168)
+                            .padding(.top, 22)
 
                         ActivityBreakdownPanel(session: session)
                             .frame(minHeight: 278)
@@ -30,17 +35,11 @@ struct SessionSummaryView: View {
                             .frame(minHeight: 158)
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 20)
+                    .padding(.top, 30)
                     .padding(.bottom, 24)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
                 .background(HomeTheme.windowBackground.ignoresSafeArea())
-                .background {
-                    SummaryTitlebarControls(
-                        onHome: onBack,
-                        onExport: { exportCSV(for: session) }
-                    )
-                }
             } else {
                 VStack(spacing: 14) {
                     Image(systemName: "clock.badge.questionmark")
@@ -100,141 +99,6 @@ struct SessionSummaryView: View {
     }
 }
 
-private struct SummaryTitlebarControls: NSViewRepresentable {
-    let onHome: () -> Void
-    let onExport: () -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onHome: onHome, onExport: onExport)
-    }
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
-        DispatchQueue.main.async {
-            context.coordinator.install(in: view.window)
-        }
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        context.coordinator.onHome = onHome
-        context.coordinator.onExport = onExport
-        DispatchQueue.main.async {
-            context.coordinator.install(in: nsView.window)
-        }
-    }
-
-    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
-        coordinator.remove()
-    }
-
-    @MainActor
-    final class Coordinator: NSObject {
-        var onHome: () -> Void
-        var onExport: () -> Void
-        private weak var window: NSWindow?
-        private var accessory: NSTitlebarAccessoryViewController?
-        private var hostingView: NSHostingView<SummaryTitlebarControlButtons>?
-
-        init(onHome: @escaping () -> Void, onExport: @escaping () -> Void) {
-            self.onHome = onHome
-            self.onExport = onExport
-        }
-
-        func install(in window: NSWindow?) {
-            guard let window else { return }
-
-            if self.window !== window {
-                remove()
-                self.window = window
-            }
-
-            window.title = ""
-            window.titleVisibility = .hidden
-
-            let controls = SummaryTitlebarControlButtons(
-                onHome: { [weak self] in self?.onHome() },
-                onExport: { [weak self] in self?.onExport() }
-            )
-
-            if let hostingView {
-                hostingView.rootView = controls
-                return
-            }
-
-            let hostingView = NSHostingView(rootView: controls)
-            hostingView.frame = NSRect(x: 0, y: 0, width: 86, height: 34)
-            let accessory = NSTitlebarAccessoryViewController()
-            accessory.view = hostingView
-            accessory.layoutAttribute = .right
-            window.addTitlebarAccessoryViewController(accessory)
-
-            self.hostingView = hostingView
-            self.accessory = accessory
-        }
-
-        func remove() {
-            if let accessory, let window,
-               let index = window.titlebarAccessoryViewControllers.firstIndex(where: { $0 === accessory }) {
-                window.removeTitlebarAccessoryViewController(at: index)
-            }
-            accessory = nil
-            hostingView = nil
-            window = nil
-        }
-    }
-}
-
-private struct SummaryTitlebarControlButtons: View {
-    let onHome: () -> Void
-    let onExport: () -> Void
-
-    var body: some View {
-        HStack(spacing: 0) {
-            SummaryTitlebarIconButton(systemName: "house", help: "Home", action: onHome)
-
-            Rectangle()
-                .fill(HomeTheme.controlStroke)
-                .frame(width: 1, height: 17)
-                .padding(.horizontal, 1)
-
-            SummaryTitlebarIconButton(
-                systemName: "square.and.arrow.down",
-                help: "Export session summary as CSV",
-                action: onExport
-            )
-        }
-        .padding(.horizontal, 6)
-        .frame(width: 76, height: 24)
-        .background(HomeTheme.controlBackground)
-        .clipShape(Capsule())
-        .overlay {
-            Capsule()
-                .stroke(HomeTheme.controlStroke, lineWidth: 1)
-        }
-        .frame(width: 86, height: 34, alignment: .center)
-    }
-}
-
-private struct SummaryTitlebarIconButton: View {
-    let systemName: String
-    let help: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 12.5, weight: .semibold))
-                .symbolRenderingMode(.monochrome)
-                .foregroundStyle(HomeTheme.primaryText)
-                .frame(width: 27, height: 24)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-    }
-}
-
 private func sessionCompletionReasonLabel(_ session: FocusSession) -> String {
     switch session.completionReason {
     case .targetCompleted:
@@ -261,6 +125,8 @@ private func statePresentationIndex(_ state: DetectionState) -> Int {
 
 private struct SummaryReferenceHeader: View {
     let session: FocusSession
+    let onHome: () -> Void
+    let onExport: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 24) {
@@ -280,17 +146,68 @@ private struct SummaryReferenceHeader: View {
 
             Spacer(minLength: 16)
 
-            VStack(alignment: .trailing, spacing: 8) {
+            HStack(alignment: .center, spacing: 22) {
                 Text("Total session duration")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(HomeTheme.secondaryText)
+                    .frame(height: 64, alignment: .center)
                 Text(formatCompactDuration(session.duration))
                     .font(.system(size: 36, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(HomeTheme.primaryText)
+                    .frame(height: 64, alignment: .center)
+
+                SummaryHeaderControlButtons(onHome: onHome, onExport: onExport)
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct SummaryHeaderControlButtons: View {
+    let onHome: () -> Void
+    let onExport: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            SummaryHeaderIconButton(systemName: "house", help: "Home", action: onHome)
+
+            Rectangle()
+                .fill(HomeTheme.controlStroke)
+                .frame(width: 1, height: 56)
+
+            SummaryHeaderIconButton(
+                systemName: "square.and.arrow.down",
+                help: "Export session summary as CSV",
+                action: onExport
+            )
+        }
+        .frame(width: 148, height: 64)
+        .background(HomeTheme.controlBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 15))
+        .overlay {
+            RoundedRectangle(cornerRadius: 15)
+                .stroke(HomeTheme.controlStroke, lineWidth: 1)
+        }
+    }
+}
+
+private struct SummaryHeaderIconButton: View {
+    let systemName: String
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 17, weight: .medium))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(HomeTheme.primaryText)
+                .frame(width: 73.5, height: 64)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 }
 
