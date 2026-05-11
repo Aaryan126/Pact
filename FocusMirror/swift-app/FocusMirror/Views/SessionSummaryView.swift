@@ -21,7 +21,7 @@ struct SessionSummaryView: View {
                         SummaryReferenceHeader(
                             session: session,
                             onHome: onBack,
-                            onExport: { exportCSV(for: session) }
+                            onExport: { exportSession(for: session) }
                         )
 
                         SummaryMetricGrid(session: session)
@@ -71,22 +71,27 @@ struct SessionSummaryView: View {
         }
     }
 
-    private func exportCSV(for session: FocusSession) {
+    private func exportSession(for session: FocusSession) {
         let panel = NSSavePanel()
         panel.title = "Export Session Summary"
         panel.prompt = "Export"
         panel.nameFieldStringValue = defaultExportFilename(for: session)
-        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.allowedContentTypes = [spreadsheetContentType, .commaSeparatedText]
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         do {
-            let csv = SessionSummaryCSVExporter.csv(for: session)
-            try csv.write(to: url, atomically: true, encoding: .utf8)
+            if url.pathExtension.lowercased() == "csv" {
+                let csv = SessionSummaryCSVExporter.csv(for: session)
+                try csv.write(to: url, atomically: true, encoding: .utf8)
+            } else {
+                let workbook = try SessionSummaryXLSXExporter.xlsx(for: session)
+                try workbook.write(to: url, options: [.atomic])
+            }
         } catch {
-            exportErrorMessage = "Could not export session CSV: \(error.localizedDescription)"
+            exportErrorMessage = "Could not export session summary: \(error.localizedDescription)"
         }
     }
 
@@ -95,7 +100,11 @@ struct SessionSummaryView: View {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = .current
         formatter.dateFormat = "yyyy-MM-dd_HH-mm"
-        return "FocusMirror Session \(formatter.string(from: session.startTime)).csv"
+        return "FocusMirror Session \(formatter.string(from: session.startTime)).xlsx"
+    }
+
+    private var spreadsheetContentType: UTType {
+        UTType(filenameExtension: "xlsx") ?? UTType(exportedAs: "org.openxmlformats.spreadsheetml.sheet")
     }
 }
 
@@ -803,12 +812,11 @@ enum SessionSummaryCSVExporter {
         "Duration",
         "Seconds",
         "Percent Of Session",
-        "Count",
-        "Notes"
+        "Count"
     ]
 
     private static let timelineHeaders = [
-        "Timeline Segment",
+        "Segment",
         "Start Time",
         "End Time",
         "Start Offset",
@@ -817,114 +825,71 @@ enum SessionSummaryCSVExporter {
         "Duration",
         "Seconds",
         "Percent Of Session",
-        "Confidence",
-        "User Correction"
+        "Confidence"
     ]
 
-    static func csv(for session: FocusSession) -> String {
+    static func csv(for session: FocusSession, timeZone: TimeZone = .current, locale: Locale = .current) -> String {
         let totalDuration = session.duration
-        var lines = ([summaryHeaders] + summaryRows(for: session, totalDuration: totalDuration)).map(csvLine)
+        var lines = ([summaryHeaders] + summaryRows(for: session, totalDuration: totalDuration, timeZone: timeZone, locale: locale)).map(csvLine)
         lines.append("")
-        lines += ([timelineHeaders] + timelineRows(for: session, totalDuration: totalDuration)).map(csvLine)
+        lines += ([timelineHeaders] + timelineRows(for: session, totalDuration: totalDuration, timeZone: timeZone, locale: locale)).map(csvLine)
 
         return lines.joined(separator: "\n") + "\n"
     }
 
-    private static func summaryRows(for session: FocusSession, totalDuration: TimeInterval) -> [[String]] {
-        let secondarySummaries = Array(
-            durationSortedSummaries(
-                session.detectedStateSummaries.filter { $0.state != .focused }
-            )
-            .prefix(2)
+    private static func summaryRows(
+        for session: FocusSession,
+        totalDuration: TimeInterval,
+        timeZone: TimeZone,
+        locale: Locale
+    ) -> [[String]] {
+        SessionSummaryExportContent.summarySections(
+            for: session,
+            totalDuration: totalDuration,
+            timeZone: timeZone,
+            locale: locale
         )
-
-        let metricSummaries = [session.detectedSummary(for: .focused)] + secondarySummaries
-        let breakdownRows = durationSortedSummaries(session.detectedStateSummaries)
-
-        return [
-            summaryRow(section: "Session", metric: "Session ID", value: session.id.uuidString),
-            summaryRow(section: "Session", metric: "Started", value: timestamp(session.startTime)),
-            summaryRow(section: "Session", metric: "Ended", value: timestamp(session.endTime)),
-            summaryRow(
-                section: "Session",
-                metric: "Target Duration",
-                value: session.targetDurationSeconds.map(formatCompactDuration) ?? "Open-ended"
-            ),
-            summaryRow(section: "Session", metric: "Completion Reason", value: sessionCompletionReasonLabel(session)),
-            summaryRow(
-                section: "Session",
-                metric: "Total Session Duration",
-                duration: totalDuration,
-                seconds: totalDuration,
-                percent: totalDuration > 0 ? 1 : 0
-            )
-        ] + metricSummaries.map { summary in
-            summaryRow(
-                section: "Focus Summary",
-                metric: summary.state == .focused ? "Focused Work" : summary.state.label,
-                duration: summary.seconds,
-                seconds: summary.seconds,
-                percent: summary.ratio,
-                count: summary.count
-            )
-        } + breakdownRows.map { summary in
-            summaryRow(
-                section: "Activity Breakdown",
-                metric: summary.state.label,
-                duration: summary.seconds,
-                seconds: summary.seconds,
-                percent: summary.ratio,
-                count: summary.count
-            )
+        .flatMap { section in
+            section.rows.map { row in
+                [
+                    section.title,
+                    row.metric,
+                    row.value,
+                    row.duration,
+                    row.seconds,
+                    row.percent,
+                    row.count
+                ]
+            }
         }
     }
 
-    private static func timelineRows(for session: FocusSession, totalDuration: TimeInterval) -> [[String]] {
-        session.segments
-            .sorted {
-                if $0.startSeconds != $1.startSeconds {
-                    return $0.startSeconds < $1.startSeconds
-                }
-                return $0.endSeconds < $1.endSeconds
-            }
-            .enumerated()
-            .map { index, segment in
-                [
-                    String(index + 1),
-                    timestamp(session.startTime.addingTimeInterval(segment.startSeconds)),
-                    timestamp(session.startTime.addingTimeInterval(segment.endSeconds)),
-                    formatClock(segment.startSeconds),
-                    formatClock(segment.endSeconds),
-                    segment.state.label,
-                    formatCompactDuration(segment.duration),
-                    roundedSeconds(segment.duration),
-                    percentString(ratio(segment.duration, of: totalDuration)),
-                    percentString(segment.confidence),
-                    segment.userCorrection?.label ?? ""
-                ]
-            }
-    }
-
-    private static func summaryRow(
-        section: String,
-        metric: String,
-        value: String = "",
-        duration: TimeInterval? = nil,
-        seconds: TimeInterval? = nil,
-        percent: Double? = nil,
-        count: Int? = nil,
-        notes: String = ""
-    ) -> [String] {
-        [
-            section,
-            metric,
-            value,
-            duration.map(formatCompactDuration) ?? "",
-            seconds.map(roundedSeconds) ?? "",
-            percent.map(percentString) ?? "",
-            count.map(String.init) ?? "",
-            notes
-        ]
+    private static func timelineRows(
+        for session: FocusSession,
+        totalDuration: TimeInterval,
+        timeZone: TimeZone,
+        locale: Locale
+    ) -> [[String]] {
+        SessionSummaryExportContent.timelineRows(
+            for: session,
+            totalDuration: totalDuration,
+            timeZone: timeZone,
+            locale: locale
+        )
+        .map { row in
+            [
+                row.segment,
+                row.startTime,
+                row.endTime,
+                row.startOffset,
+                row.endOffset,
+                row.state,
+                row.duration,
+                row.seconds,
+                row.percent,
+                row.confidence
+            ]
+        }
     }
 
     private static func csvLine(_ fields: [String]) -> String {
@@ -937,25 +902,746 @@ enum SessionSummaryCSVExporter {
         }
         return "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
     }
+}
+
+enum SessionSummaryXLSXExporter {
+    static func xlsx(for session: FocusSession, timeZone: TimeZone = .current, locale: Locale = .current) throws -> Data {
+        try SimpleZipArchive.archive(files: packageFiles(for: session, timeZone: timeZone, locale: locale))
+    }
+
+    static func packageFiles(
+        for session: FocusSession,
+        timeZone: TimeZone = .current,
+        locale: Locale = .current
+    ) -> [XLSXPackageFile] {
+        [
+            XLSXPackageFile(path: "[Content_Types].xml", string: contentTypesXML),
+            XLSXPackageFile(path: "_rels/.rels", string: rootRelationshipsXML),
+            XLSXPackageFile(path: "xl/workbook.xml", string: workbookXML),
+            XLSXPackageFile(path: "xl/_rels/workbook.xml.rels", string: workbookRelationshipsXML),
+            XLSXPackageFile(path: "xl/styles.xml", string: stylesXML),
+            XLSXPackageFile(path: "xl/worksheets/sheet1.xml", string: worksheetXML(for: session, timeZone: timeZone, locale: locale))
+        ]
+    }
+
+    private static let contentTypesXML = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+      <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+      <Default Extension="xml" ContentType="application/xml"/>
+      <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+      <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+      <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+    </Types>
+    """
+
+    private static let rootRelationshipsXML = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+    </Relationships>
+    """
+
+    private static let workbookRelationshipsXML = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+      <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+    </Relationships>
+    """
+
+    private static let workbookXML = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+      <sheets>
+        <sheet name="Session Summary" sheetId="1" r:id="rId1"/>
+      </sheets>
+    </workbook>
+    """
+
+    private static let stylesXML = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+      <numFmts count="3">
+        <numFmt numFmtId="164" formatCode="0.0%"/>
+        <numFmt numFmtId="165" formatCode="[m]:ss"/>
+        <numFmt numFmtId="166" formatCode="mmm d, yyyy, h:mm AM/PM"/>
+      </numFmts>
+      <fonts count="4">
+        <font><sz val="12"/><color rgb="FF111827"/><name val="Aptos"/></font>
+        <font><b/><sz val="12"/><color rgb="FF111827"/><name val="Aptos"/></font>
+        <font><b/><sz val="18"/><color rgb="FFFFFFFF"/><name val="Aptos"/></font>
+        <font><sz val="11"/><color rgb="FF4B5563"/><name val="Aptos"/></font>
+      </fonts>
+      <fills count="5">
+        <fill><patternFill patternType="none"/></fill>
+        <fill><patternFill patternType="gray125"/></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FF1F4FD8"/><bgColor indexed="64"/></patternFill></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FFEAF0FF"/><bgColor indexed="64"/></patternFill></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/><bgColor indexed="64"/></patternFill></fill>
+      </fills>
+      <borders count="2">
+        <border><left/><right/><top/><bottom/><diagonal/></border>
+        <border>
+          <left style="thin"><color rgb="FFD1D5DB"/></left>
+          <right style="thin"><color rgb="FFD1D5DB"/></right>
+          <top style="thin"><color rgb="FFD1D5DB"/></top>
+          <bottom style="thin"><color rgb="FFD1D5DB"/></bottom>
+          <diagonal/>
+        </border>
+      </borders>
+      <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+      <cellXfs count="10">
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+        <xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+        <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+        <xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+        <xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>
+        <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>
+        <xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+        <xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>
+      </cellXfs>
+      <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+      <dxfs count="0"/>
+      <tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleMedium9"/>
+    </styleSheet>
+    """
+
+    private static func worksheetXML(for session: FocusSession, timeZone: TimeZone, locale: Locale) -> String {
+        var builder = WorksheetBuilder()
+        let totalDuration = session.duration
+        let sections = SessionSummaryExportContent.summarySections(
+            for: session,
+            totalDuration: totalDuration,
+            timeZone: timeZone,
+            locale: locale
+        )
+        let timelineRows = SessionSummaryExportContent.timelineRows(
+            for: session,
+            totalDuration: totalDuration,
+            timeZone: timeZone,
+            locale: locale
+        )
+
+        builder.addMergedRow(
+            "FocusMirror Session Summary",
+            fromColumn: 1,
+            toColumn: 10,
+            style: .title
+        )
+        builder.addMergedRow(
+            "\(SessionSummaryExportFormatting.timestamp(session.startTime, timeZone: timeZone, locale: locale)) - \(SessionSummaryExportFormatting.timestamp(session.endTime, timeZone: timeZone, locale: locale)) | \(SessionSummaryExportFormatting.timeZoneDescription(timeZone, on: session.startTime, locale: locale))",
+            fromColumn: 1,
+            toColumn: 10,
+            style: .subtitle
+        )
+        builder.addBlankRow()
+
+        for section in sections {
+            builder.addMergedRow(section.title, fromColumn: 1, toColumn: 6, style: .section)
+            builder.addRow(["Metric", "Value", "Duration", "Seconds", "Percent Of Session", "Count"], style: .header)
+            for row in section.rows {
+                builder.addStyledRow([
+                    .text(row.metric, style: .body),
+                    row.valueDate.map { .excelDate($0, timeZone: timeZone, style: .dateTime) }
+                        ?? .text(row.value, style: .body),
+                    .text(row.duration, style: .body),
+                    row.secondsValue.map { .number($0, style: .number) } ?? .blank(style: .number),
+                    row.percentValue.map { .number($0, style: .percent) } ?? .blank(style: .percent),
+                    row.countValue.map { .number(Double($0), style: .number) } ?? .blank(style: .number)
+                ])
+            }
+            builder.addBlankRow()
+        }
+
+        builder.addMergedRow("Timeline", fromColumn: 1, toColumn: 10, style: .section)
+        builder.addRow(
+            [
+                "Segment",
+                "Start Time",
+                "End Time",
+                "Start Offset",
+                "End Offset",
+                "State",
+                "Duration",
+                "Seconds",
+                "Percent Of Session",
+                "Confidence"
+            ],
+            style: .header
+        )
+
+        if timelineRows.isEmpty {
+            builder.addMergedRow("No timeline segments recorded", fromColumn: 1, toColumn: 10, style: .body)
+        } else {
+            for row in timelineRows {
+                builder.addStyledRow([
+                    .number(Double(row.segmentValue), style: .number),
+                    .excelDate(row.startDate, timeZone: timeZone, style: .dateTime),
+                    .excelDate(row.endDate, timeZone: timeZone, style: .dateTime),
+                    .elapsedTime(row.startOffsetSeconds, style: .elapsedTime),
+                    .elapsedTime(row.endOffsetSeconds, style: .elapsedTime),
+                    .text(row.state, style: .body),
+                    .text(row.duration, style: .body),
+                    .number(row.secondsValue, style: .number),
+                    .number(row.percentValue, style: .percent),
+                    .number(row.confidenceValue, style: .percent)
+                ])
+            }
+        }
+
+        return builder.xml()
+    }
+}
+
+struct XLSXPackageFile {
+    let path: String
+    let data: Data
+
+    init(path: String, string: String) {
+        self.path = path
+        data = Data(string.utf8)
+    }
+}
+
+private struct ExportSummarySection {
+    let title: String
+    let rows: [ExportSummaryRow]
+}
+
+private struct ExportSummaryRow {
+    let metric: String
+    let value: String
+    let valueDate: Date?
+    let duration: String
+    let seconds: String
+    let secondsValue: Double?
+    let percent: String
+    let percentValue: Double?
+    let count: String
+    let countValue: Int?
+
+    init(
+        metric: String,
+        value: String = "",
+        valueDate: Date? = nil,
+        duration: TimeInterval? = nil,
+        seconds: TimeInterval? = nil,
+        percent: Double? = nil,
+        count: Int? = nil
+    ) {
+        self.metric = metric
+        self.value = value
+        self.valueDate = valueDate
+        self.duration = duration.map(SessionSummaryExportFormatting.duration) ?? ""
+        self.seconds = seconds.map(SessionSummaryExportFormatting.roundedSeconds) ?? ""
+        self.secondsValue = seconds.map { Double(Int($0.rounded())) }
+        self.percent = percent.map(SessionSummaryExportFormatting.percent) ?? ""
+        self.percentValue = percent
+        self.count = count.map(String.init) ?? ""
+        self.countValue = count
+    }
+}
+
+private struct ExportTimelineRow {
+    let segment: String
+    let segmentValue: Int
+    let startTime: String
+    let startDate: Date
+    let endTime: String
+    let endDate: Date
+    let startOffset: String
+    let startOffsetSeconds: TimeInterval
+    let endOffset: String
+    let endOffsetSeconds: TimeInterval
+    let state: String
+    let duration: String
+    let seconds: String
+    let secondsValue: Double
+    let percent: String
+    let percentValue: Double
+    let confidence: String
+    let confidenceValue: Double
+}
+
+private enum SessionSummaryExportContent {
+    static func summarySections(
+        for session: FocusSession,
+        totalDuration: TimeInterval,
+        timeZone: TimeZone,
+        locale: Locale
+    ) -> [ExportSummarySection] {
+        [
+            ExportSummarySection(
+                title: "Session",
+                rows: sessionRows(for: session, totalDuration: totalDuration, timeZone: timeZone, locale: locale)
+            ),
+            ExportSummarySection(title: "Activity Breakdown", rows: activityBreakdownRows(for: session))
+        ]
+    }
+
+    static func timelineRows(
+        for session: FocusSession,
+        totalDuration: TimeInterval,
+        timeZone: TimeZone,
+        locale: Locale
+    ) -> [ExportTimelineRow] {
+        session.segments
+            .sorted {
+                if $0.startSeconds != $1.startSeconds {
+                    return $0.startSeconds < $1.startSeconds
+                }
+                return $0.endSeconds < $1.endSeconds
+            }
+            .enumerated()
+            .map { index, segment in
+                let startDate = session.startTime.addingTimeInterval(segment.startSeconds)
+                let endDate = session.startTime.addingTimeInterval(segment.endSeconds)
+                let percent = ratio(segment.duration, of: totalDuration)
+                return ExportTimelineRow(
+                    segment: String(index + 1),
+                    segmentValue: index + 1,
+                    startTime: SessionSummaryExportFormatting.timestamp(startDate, timeZone: timeZone, locale: locale),
+                    startDate: startDate,
+                    endTime: SessionSummaryExportFormatting.timestamp(endDate, timeZone: timeZone, locale: locale),
+                    endDate: endDate,
+                    startOffset: formatClock(segment.startSeconds),
+                    startOffsetSeconds: segment.startSeconds,
+                    endOffset: formatClock(segment.endSeconds),
+                    endOffsetSeconds: segment.endSeconds,
+                    state: segment.state.label,
+                    duration: SessionSummaryExportFormatting.duration(segment.duration),
+                    seconds: SessionSummaryExportFormatting.roundedSeconds(segment.duration),
+                    secondsValue: Double(Int(segment.duration.rounded())),
+                    percent: SessionSummaryExportFormatting.percent(percent),
+                    percentValue: percent,
+                    confidence: SessionSummaryExportFormatting.percent(segment.confidence),
+                    confidenceValue: segment.confidence
+                )
+            }
+    }
 
     private static func ratio(_ seconds: TimeInterval, of total: TimeInterval) -> Double {
         guard total > 0 else { return 0 }
         return seconds / total
     }
 
-    private static func roundedSeconds(_ seconds: TimeInterval) -> String {
+    private static func sessionRows(
+        for session: FocusSession,
+        totalDuration: TimeInterval,
+        timeZone: TimeZone,
+        locale: Locale
+    ) -> [ExportSummaryRow] {
+        [
+            ExportSummaryRow(metric: "Session ID", value: session.id.uuidString),
+            ExportSummaryRow(
+                metric: "Started",
+                value: SessionSummaryExportFormatting.timestamp(session.startTime, timeZone: timeZone, locale: locale),
+                valueDate: session.startTime
+            ),
+            ExportSummaryRow(
+                metric: "Ended",
+                value: SessionSummaryExportFormatting.timestamp(session.endTime, timeZone: timeZone, locale: locale),
+                valueDate: session.endTime
+            ),
+            ExportSummaryRow(
+                metric: "Timezone",
+                value: SessionSummaryExportFormatting.timeZoneDescription(timeZone, on: session.startTime, locale: locale)
+            ),
+            ExportSummaryRow(
+                metric: "Target Duration",
+                value: session.targetDurationSeconds.map(SessionSummaryExportFormatting.duration) ?? "Open-ended"
+            ),
+            ExportSummaryRow(metric: "Completion Reason", value: sessionCompletionReasonLabel(session)),
+            ExportSummaryRow(
+                metric: "Total Session Duration",
+                duration: totalDuration,
+                seconds: totalDuration,
+                percent: totalDuration > 0 ? 1 : 0
+            )
+        ]
+    }
+
+    private static func activityBreakdownRows(for session: FocusSession) -> [ExportSummaryRow] {
+        durationSortedSummaries(session.detectedStateSummaries).map { summary in
+            ExportSummaryRow(
+                metric: summary.state.label,
+                duration: summary.seconds,
+                seconds: summary.seconds,
+                percent: summary.ratio,
+                count: summary.count
+            )
+        }
+    }
+}
+
+private enum SessionSummaryExportFormatting {
+    static func timestamp(_ date: Date, timeZone: TimeZone, locale: Locale) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "MMM d, yyyy, h:mm a zzz"
+        return formatter.string(from: date)
+    }
+
+    static func timeZoneDescription(_ timeZone: TimeZone, on date: Date, locale: Locale) -> String {
+        let localizedName = timeZone.localizedName(for: .generic, locale: locale)
+            ?? timeZone.localizedName(for: .standard, locale: locale)
+        let abbreviation = timeZone.abbreviation(for: date)
+        switch (localizedName, abbreviation) {
+        case let (.some(localizedName), .some(abbreviation)) where !localizedName.contains(abbreviation):
+            return "\(localizedName) (\(abbreviation))"
+        case let (.some(localizedName), _):
+            return localizedName
+        case let (_, .some(abbreviation)):
+            return abbreviation
+        default:
+            return timeZone.identifier
+        }
+    }
+
+    static func duration(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let remainingSeconds = total % 60
+        var parts: [String] = []
+
+        if hours > 0 {
+            parts.append("\(hours)h")
+        }
+        if minutes > 0 {
+            parts.append("\(minutes)m")
+        }
+        if remainingSeconds > 0 || parts.isEmpty {
+            parts.append("\(remainingSeconds)s")
+        }
+
+        return parts.joined(separator: " ")
+    }
+
+    static func roundedSeconds(_ seconds: TimeInterval) -> String {
         String(Int(seconds.rounded()))
     }
 
-    private static func percentString(_ value: Double) -> String {
+    static func percent(_ value: Double) -> String {
         String(format: "%.1f%%", locale: Locale(identifier: "en_US_POSIX"), value * 100)
     }
 
-    private static func timestamp(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = .current
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZZ"
-        return formatter.string(from: date)
+    static func excelDateSerial(_ date: Date, timeZone: TimeZone) -> Double {
+        var sourceCalendar = Calendar(identifier: .gregorian)
+        sourceCalendar.timeZone = timeZone
+        let components = sourceCalendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second, .nanosecond],
+            from: date
+        )
+
+        var excelCalendar = Calendar(identifier: .gregorian)
+        excelCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard
+            let localDateAsUTC = excelCalendar.date(from: components),
+            let excelEpoch = excelCalendar.date(from: DateComponents(year: 1899, month: 12, day: 30))
+        else {
+            return 0
+        }
+
+        return localDateAsUTC.timeIntervalSince(excelEpoch) / 86_400
     }
+}
+
+private enum WorksheetStyle: Int {
+    case normal = 0
+    case title = 1
+    case subtitle = 2
+    case section = 3
+    case header = 4
+    case body = 5
+    case number = 6
+    case percent = 7
+    case dateTime = 8
+    case elapsedTime = 9
+}
+
+private struct WorksheetCell {
+    let value: WorksheetCellValue
+    let style: WorksheetStyle
+
+    static func text(_ value: String, style: WorksheetStyle) -> WorksheetCell {
+        WorksheetCell(value: value.isEmpty ? .blank : .text(value), style: style)
+    }
+
+    static func number(_ value: Double, style: WorksheetStyle) -> WorksheetCell {
+        WorksheetCell(value: .number(value), style: style)
+    }
+
+    static func excelDate(_ date: Date, timeZone: TimeZone, style: WorksheetStyle) -> WorksheetCell {
+        WorksheetCell(
+            value: .number(SessionSummaryExportFormatting.excelDateSerial(date, timeZone: timeZone)),
+            style: style
+        )
+    }
+
+    static func elapsedTime(_ seconds: TimeInterval, style: WorksheetStyle) -> WorksheetCell {
+        WorksheetCell(value: .number(seconds / 86_400), style: style)
+    }
+
+    static func blank(style: WorksheetStyle) -> WorksheetCell {
+        WorksheetCell(value: .blank, style: style)
+    }
+
+    private init(value: WorksheetCellValue, style: WorksheetStyle) {
+        self.value = value
+        self.style = style
+    }
+}
+
+private enum WorksheetCellValue {
+    case blank
+    case text(String)
+    case number(Double)
+}
+
+private struct WorksheetBuilder {
+    private var currentRow = 1
+    private var rowXML: [String] = []
+    private var mergedRanges: [String] = []
+
+    mutating func addRow(_ values: [String], style: WorksheetStyle) {
+        addStyledRow(values.map { .text($0, style: style) })
+    }
+
+    mutating func addStyledRow(_ cells: [WorksheetCell]) {
+        let cellXML = cells.enumerated()
+            .map { index, cell in
+                xlsxCellXML(
+                    value: cell.value,
+                    reference: "\(columnName(index + 1))\(currentRow)",
+                    style: cell.style
+                )
+            }
+            .joined()
+        rowXML.append("<row r=\"\(currentRow)\">\(cellXML)</row>")
+        currentRow += 1
+    }
+
+    mutating func addMergedRow(_ value: String, fromColumn: Int, toColumn: Int, style: WorksheetStyle) {
+        let start = "\(columnName(fromColumn))\(currentRow)"
+        let end = "\(columnName(toColumn))\(currentRow)"
+        rowXML.append(
+            "<row r=\"\(currentRow)\">\(xlsxCellXML(value: .text(value), reference: start, style: style))</row>"
+        )
+        mergedRanges.append("\(start):\(end)")
+        currentRow += 1
+    }
+
+    mutating func addBlankRow() {
+        currentRow += 1
+    }
+
+    func xml() -> String {
+        let merges = mergedRanges.isEmpty
+            ? ""
+            : "<mergeCells count=\"\(mergedRanges.count)\">\(mergedRanges.map { "<mergeCell ref=\"\($0)\"/>" }.joined())</mergeCells>"
+
+        return """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+          <sheetViews>
+            <sheetView workbookViewId="0">
+              <pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/>
+            </sheetView>
+          </sheetViews>
+          <cols>
+            <col min="1" max="1" width="28" customWidth="1"/>
+            <col min="2" max="2" width="34" customWidth="1"/>
+            <col min="3" max="3" width="34" customWidth="1"/>
+            <col min="4" max="4" width="14" customWidth="1"/>
+            <col min="5" max="5" width="16" customWidth="1"/>
+            <col min="6" max="6" width="22" customWidth="1"/>
+            <col min="7" max="7" width="14" customWidth="1"/>
+            <col min="8" max="8" width="12" customWidth="1"/>
+            <col min="9" max="9" width="20" customWidth="1"/>
+            <col min="10" max="10" width="14" customWidth="1"/>
+          </cols>
+          <sheetData>
+            \(rowXML.joined(separator: "\n    "))
+          </sheetData>
+          \(merges)
+        </worksheet>
+        """
+    }
+
+    private func xlsxCellXML(value: WorksheetCellValue, reference: String, style: WorksheetStyle) -> String {
+        switch value {
+        case .blank:
+            return "<c r=\"\(reference)\" s=\"\(style.rawValue)\"/>"
+        case .number(let value):
+            return "<c r=\"\(reference)\" s=\"\(style.rawValue)\"><v>\(excelNumberString(value))</v></c>"
+        case .text(let value):
+            return "<c r=\"\(reference)\" s=\"\(style.rawValue)\" t=\"inlineStr\"><is><t>\(xmlEscaped(value))</t></is></c>"
+        }
+    }
+
+    private func columnName(_ index: Int) -> String {
+        var value = index
+        var result = ""
+        while value > 0 {
+            value -= 1
+            let scalar = UnicodeScalar(65 + (value % 26))!
+            result = String(Character(scalar)) + result
+            value /= 26
+        }
+        return result
+    }
+}
+
+private func excelNumberString(_ value: Double) -> String {
+    guard value.isFinite else {
+        return "0"
+    }
+
+    let formatted = String(format: "%.12f", locale: Locale(identifier: "en_US_POSIX"), value)
+    return formatted
+        .replacingOccurrences(of: #"0+$"#, with: "", options: .regularExpression)
+        .replacingOccurrences(of: #"\.$"#, with: "", options: .regularExpression)
+}
+
+private enum SimpleZipArchive {
+    static func archive(files: [XLSXPackageFile]) throws -> Data {
+        var archive = Data()
+        var centralDirectory = Data()
+        var localHeaderOffsets: [UInt32] = []
+
+        for file in files {
+            guard archive.count <= Int(UInt32.max), file.data.count <= Int(UInt32.max) else {
+                throw SimpleZipArchiveError.fileTooLarge
+            }
+
+            let filename = Data(file.path.utf8)
+            let crc = crc32(file.data)
+            let localHeaderOffset = UInt32(archive.count)
+            localHeaderOffsets.append(localHeaderOffset)
+
+            archive.appendUInt32LE(0x04034b50)
+            archive.appendUInt16LE(20)
+            archive.appendUInt16LE(0x0800)
+            archive.appendUInt16LE(0)
+            archive.appendUInt16LE(0)
+            archive.appendUInt16LE(0x0021)
+            archive.appendUInt32LE(crc)
+            archive.appendUInt32LE(UInt32(file.data.count))
+            archive.appendUInt32LE(UInt32(file.data.count))
+            archive.appendUInt16LE(UInt16(filename.count))
+            archive.appendUInt16LE(0)
+            archive.append(filename)
+            archive.append(file.data)
+        }
+
+        for (index, file) in files.enumerated() {
+            let filename = Data(file.path.utf8)
+            let crc = crc32(file.data)
+
+            centralDirectory.appendUInt32LE(0x02014b50)
+            centralDirectory.appendUInt16LE(20)
+            centralDirectory.appendUInt16LE(20)
+            centralDirectory.appendUInt16LE(0x0800)
+            centralDirectory.appendUInt16LE(0)
+            centralDirectory.appendUInt16LE(0)
+            centralDirectory.appendUInt16LE(0x0021)
+            centralDirectory.appendUInt32LE(crc)
+            centralDirectory.appendUInt32LE(UInt32(file.data.count))
+            centralDirectory.appendUInt32LE(UInt32(file.data.count))
+            centralDirectory.appendUInt16LE(UInt16(filename.count))
+            centralDirectory.appendUInt16LE(0)
+            centralDirectory.appendUInt16LE(0)
+            centralDirectory.appendUInt16LE(0)
+            centralDirectory.appendUInt16LE(0)
+            centralDirectory.appendUInt32LE(0)
+            centralDirectory.appendUInt32LE(localHeaderOffsets[index])
+            centralDirectory.append(filename)
+        }
+
+        guard archive.count <= Int(UInt32.max), centralDirectory.count <= Int(UInt32.max), files.count <= Int(UInt16.max) else {
+            throw SimpleZipArchiveError.fileTooLarge
+        }
+
+        let centralDirectoryOffset = UInt32(archive.count)
+        archive.append(centralDirectory)
+        archive.appendUInt32LE(0x06054b50)
+        archive.appendUInt16LE(0)
+        archive.appendUInt16LE(0)
+        archive.appendUInt16LE(UInt16(files.count))
+        archive.appendUInt16LE(UInt16(files.count))
+        archive.appendUInt32LE(UInt32(centralDirectory.count))
+        archive.appendUInt32LE(centralDirectoryOffset)
+        archive.appendUInt16LE(0)
+
+        return archive
+    }
+
+    private static func crc32(_ data: Data) -> UInt32 {
+        var crc: UInt32 = 0xFFFF_FFFF
+        for byte in data {
+            crc ^= UInt32(byte)
+            for _ in 0..<8 {
+                if crc & 1 == 1 {
+                    crc = (crc >> 1) ^ 0xEDB8_8320
+                } else {
+                    crc >>= 1
+                }
+            }
+        }
+        return crc ^ 0xFFFF_FFFF
+    }
+}
+
+private enum SimpleZipArchiveError: LocalizedError {
+    case fileTooLarge
+
+    var errorDescription: String? {
+        switch self {
+        case .fileTooLarge:
+            "The spreadsheet is too large to export."
+        }
+    }
+}
+
+private extension Data {
+    mutating func appendUInt16LE(_ value: UInt16) {
+        var littleEndian = value.littleEndian
+        Swift.withUnsafeBytes(of: &littleEndian) { bytes in
+            append(contentsOf: bytes)
+        }
+    }
+
+    mutating func appendUInt32LE(_ value: UInt32) {
+        var littleEndian = value.littleEndian
+        Swift.withUnsafeBytes(of: &littleEndian) { bytes in
+            append(contentsOf: bytes)
+        }
+    }
+}
+
+private func xmlEscaped(_ value: String) -> String {
+    var result = ""
+    result.reserveCapacity(value.count)
+    for character in value {
+        switch character {
+        case "&":
+            result += "&amp;"
+        case "<":
+            result += "&lt;"
+        case ">":
+            result += "&gt;"
+        case "\"":
+            result += "&quot;"
+        case "'":
+            result += "&apos;"
+        default:
+            result.append(character)
+        }
+    }
+    return result
 }

@@ -95,15 +95,83 @@ final class AppModelTests: XCTestCase {
             ]
         )
 
-        let csv = SessionSummaryCSVExporter.csv(for: session)
+        let csv = SessionSummaryCSVExporter.csv(
+            for: session,
+            timeZone: TimeZone(secondsFromGMT: 0)!,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
 
-        XCTAssertTrue(csv.hasPrefix("Section,Metric,Value,Duration,Seconds,Percent Of Session,Count,Notes\n"))
-        XCTAssertTrue(csv.contains("\nSession,Total Session Duration,,20m,1200,100.0%,,\n"))
-        XCTAssertTrue(csv.contains("\nFocus Summary,Focused Work,,10m,600,50.0%,1,\n"))
-        XCTAssertTrue(csv.contains("\nActivity Breakdown,Looking Down,,5m,300,25.0%,1,\n"))
-        XCTAssertTrue(csv.contains("\n\nTimeline Segment,Start Time,End Time,Start Offset,End Offset,State,Duration,Seconds,Percent Of Session,Confidence,User Correction\n"))
-        XCTAssertTrue(csv.contains(",00:00,10:00,Focused,10m,600,50.0%,90.0%,\n"))
-        XCTAssertTrue(csv.contains(",10:00,15:00,Looking Down,5m,300,25.0%,80.0%,Actually focused work\n"))
+        XCTAssertTrue(csv.hasPrefix("Section,Metric,Value,Duration,Seconds,Percent Of Session,Count\n"))
+        XCTAssertTrue(csv.contains("\nSession,Started,\"Jan 1, 1970, 12:00 AM GMT\",,,,\n"))
+        XCTAssertTrue(csv.contains("\nSession,Timezone,Greenwich Mean Time (GMT),,,,\n"))
+        XCTAssertTrue(csv.contains("\nSession,Total Session Duration,,20m,1200,100.0%,\n"))
+        XCTAssertFalse(csv.contains("Focus Summary"))
+        XCTAssertTrue(csv.contains("\nActivity Breakdown,Focused,,10m,600,50.0%,1\n"))
+        XCTAssertTrue(csv.contains("\nActivity Breakdown,Looking Down,,5m,300,25.0%,1\n"))
+        XCTAssertTrue(csv.contains("\n\nSegment,Start Time,End Time,Start Offset,End Offset,State,Duration,Seconds,Percent Of Session,Confidence\n"))
+        XCTAssertTrue(csv.contains("1,\"Jan 1, 1970, 12:00 AM GMT\",\"Jan 1, 1970, 12:10 AM GMT\",00:00,10:00,Focused,10m,600,50.0%,90.0%\n"))
+        XCTAssertTrue(csv.contains("2,\"Jan 1, 1970, 12:10 AM GMT\",\"Jan 1, 1970, 12:15 AM GMT\",10:00,15:00,Looking Down,5m,300,25.0%,80.0%\n"))
+        XCTAssertFalse(csv.contains("User Correction"))
+        XCTAssertFalse(csv.contains("Actually focused work"))
+    }
+
+    func testSessionSummaryXLSXUsesStyledWorkbookPackage() throws {
+        let session = FocusSession(
+            id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+            startTime: Date(timeIntervalSince1970: 0),
+            endTime: Date(timeIntervalSince1970: 80),
+            targetDurationSeconds: nil,
+            completionReason: .manual,
+            segments: [
+                StateSegment(startSeconds: 0, endSeconds: 40, state: .focused, confidence: 0.8),
+                StateSegment(startSeconds: 40, endSeconds: 80, state: .away, confidence: 0.95)
+            ]
+        )
+
+        let files = SessionSummaryXLSXExporter.packageFiles(
+            for: session,
+            timeZone: TimeZone(secondsFromGMT: 0)!,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+        let workbook = try SessionSummaryXLSXExporter.xlsx(
+            for: session,
+            timeZone: TimeZone(secondsFromGMT: 0)!,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+        let zipEntries = try storedZipEntries(in: workbook)
+        let worksheet = try XCTUnwrap(files.first { $0.path == "xl/worksheets/sheet1.xml" })
+        let styles = try XCTUnwrap(files.first { $0.path == "xl/styles.xml" })
+        let worksheetXML = String(decoding: worksheet.data, as: UTF8.self)
+        let stylesXML = String(decoding: styles.data, as: UTF8.self)
+
+        XCTAssertEqual(Set(files.map(\.path)), [
+            "[Content_Types].xml",
+            "_rels/.rels",
+            "xl/workbook.xml",
+            "xl/_rels/workbook.xml.rels",
+            "xl/styles.xml",
+            "xl/worksheets/sheet1.xml"
+        ])
+        XCTAssertEqual(Set(zipEntries.keys), Set(files.map(\.path)))
+        XCTAssertEqual(Array(workbook.prefix(2)), [0x50, 0x4B])
+        XCTAssertEqual(String(decoding: try XCTUnwrap(zipEntries["xl/worksheets/sheet1.xml"]), as: UTF8.self), worksheetXML)
+        XCTAssertTrue(worksheetXML.contains("FocusMirror Session Summary"))
+        XCTAssertTrue(worksheetXML.contains("Activity Breakdown"))
+        XCTAssertFalse(worksheetXML.contains("Focus Summary"))
+        XCTAssertTrue(worksheetXML.contains("Percent Of Session"))
+        XCTAssertTrue(worksheetXML.contains("1m 20s"))
+        XCTAssertTrue(worksheetXML.contains("<col min=\"1\" max=\"1\" width=\"28\" customWidth=\"1\"/>"))
+        XCTAssertTrue(stylesXML.contains("formatCode=\"0.0%\""))
+        XCTAssertTrue(stylesXML.contains("formatCode=\"[m]:ss\""))
+        XCTAssertTrue(stylesXML.contains("formatCode=\"mmm d, yyyy, h:mm AM/PM\""))
+        XCTAssertTrue(worksheetXML.contains("s=\"6\"><v>80</v>"))
+        XCTAssertTrue(worksheetXML.contains("s=\"7\"><v>1</v>"))
+        XCTAssertTrue(worksheetXML.contains("s=\"7\"><v>0.5</v>"))
+        XCTAssertTrue(worksheetXML.contains("s=\"8\"><v>25569"))
+        XCTAssertTrue(worksheetXML.contains("s=\"9\"><v>0.000462962963</v>"))
+        XCTAssertFalse(worksheetXML.contains("<t>80</t>"))
+        XCTAssertFalse(worksheetXML.contains("<t>50.0%</t>"))
+        XCTAssertFalse(worksheetXML.contains("User Correction"))
     }
 
     func testLegacySessionJSONDecodesWithoutCompletionReason() throws {
@@ -157,6 +225,59 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(store.savedSessions.isEmpty)
         XCTAssertTrue(model.engineError?.contains("detection engine failed") == true)
     }
+}
+
+private enum TestZipReadError: Error {
+    case invalidHeader
+    case unsupportedCompression
+}
+
+private func storedZipEntries(in data: Data) throws -> [String: Data] {
+    let bytes = Array(data)
+    var offset = 0
+    var entries: [String: Data] = [:]
+
+    while offset + 4 <= bytes.count {
+        let signature = uint32LE(bytes, offset)
+        if signature == 0x0201_4B50 || signature == 0x0605_4B50 {
+            break
+        }
+        guard signature == 0x0403_4B50, offset + 30 <= bytes.count else {
+            throw TestZipReadError.invalidHeader
+        }
+
+        let method = uint16LE(bytes, offset + 8)
+        guard method == 0 else {
+            throw TestZipReadError.unsupportedCompression
+        }
+
+        let compressedSize = Int(uint32LE(bytes, offset + 18))
+        let filenameLength = Int(uint16LE(bytes, offset + 26))
+        let extraLength = Int(uint16LE(bytes, offset + 28))
+        let filenameStart = offset + 30
+        let dataStart = filenameStart + filenameLength + extraLength
+        let dataEnd = dataStart + compressedSize
+        guard dataEnd <= bytes.count else {
+            throw TestZipReadError.invalidHeader
+        }
+
+        let filename = String(decoding: bytes[filenameStart..<(filenameStart + filenameLength)], as: UTF8.self)
+        entries[filename] = Data(bytes[dataStart..<dataEnd])
+        offset = dataEnd
+    }
+
+    return entries
+}
+
+private func uint16LE(_ bytes: [UInt8], _ offset: Int) -> UInt16 {
+    UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8)
+}
+
+private func uint32LE(_ bytes: [UInt8], _ offset: Int) -> UInt32 {
+    UInt32(bytes[offset])
+        | (UInt32(bytes[offset + 1]) << 8)
+        | (UInt32(bytes[offset + 2]) << 16)
+        | (UInt32(bytes[offset + 3]) << 24)
 }
 
 @MainActor
