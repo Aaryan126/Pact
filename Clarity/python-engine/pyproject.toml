@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clarity-engine"
+version = "0.1.0"
+description = "Local-only Clarity computer vision detection engine"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "opencv-contrib-python>=4.9",
+  "mediapipe>=0.10",
+  "numpy>=1.26",
+]
+
+[project.scripts]
+clarity-engine = "clarity_engine.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

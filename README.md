@@ -1,6 +1,6 @@
-# FocusMirror — Spec Package
+# Clarity — Spec Package
 
-This folder contains the full specification for building **FocusMirror v1**, a macOS desktop app that gives students an honest measurement of their actual focused work time during study sessions.
+This folder contains the full specification for building **Clarity v1**, a macOS desktop app that gives students an honest measurement of their actual focused work time during study sessions.
 
 ## Files
 

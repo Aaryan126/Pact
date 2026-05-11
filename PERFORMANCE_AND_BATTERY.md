@@ -1,6 +1,6 @@
 # Performance and Battery
 
-Students study for 1-4 hours at a stretch. If FocusMirror drains the battery, heats the laptop, or makes other apps lag, users will uninstall regardless of how good the detection is.
+Students study for 1-4 hours at a stretch. If Clarity drains the battery, heats the laptop, or makes other apps lag, users will uninstall regardless of how good the detection is.
 
 ## Targets
 
@@ -49,7 +49,7 @@ If CPU exceeds budget, the most likely culprits in order:
 
 ## Battery testing
 
-Run a 2-hour session with the engine active and compare to a baseline 2-hour idle period (screen on, same brightness, no FocusMirror). Battery drain delta is your impact.
+Run a 2-hour session with the engine active and compare to a baseline 2-hour idle period (screen on, same brightness, no Clarity). Battery drain delta is your impact.
 
 Test on at least one Intel Mac and one Apple Silicon Mac, the perf characteristics differ significantly.
 

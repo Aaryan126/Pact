@@ -1,6 +1,6 @@
 # Privacy and Trust
 
-FocusMirror points a camera at students for hours. The privacy story is not a marketing detail, it's the core of the product. If users don't trust that nothing leaves their device, they won't use it, and they'd be right not to.
+Clarity points a camera at students for hours. The privacy story is not a marketing detail, it's the core of the product. If users don't trust that nothing leaves their device, they won't use it, and they'd be right not to.
 
 This document defines the privacy guarantees, how to implement them, and how to communicate them.
 
@@ -22,14 +22,14 @@ These are non-negotiable for v1. If you can't ship them, don't ship.
 
 That's it. No video, no images, no audio, no biometric templates.
 
-Stored in `~/Library/Application Support/FocusMirror/`. User can inspect, delete, or back up this directory at will.
+Stored in `~/Library/Application Support/Clarity/`. User can inspect, delete, or back up this directory at will.
 
 ## Implementation
 
 ### Camera permission
 Use `NSCameraUsageDescription` in `Info.plist` with this exact string or close to it:
 
-> "FocusMirror uses your camera locally to measure your focus during study sessions. Video is processed on your Mac and never leaves your device, no images or video are saved or sent anywhere."
+> "Clarity uses your camera locally to measure your focus during study sessions. Video is processed on your Mac and never leaves your device, no images or video are saved or sent anywhere."
 
 ### Sandbox and entitlements
 The app should be sandboxed. The required entitlements:

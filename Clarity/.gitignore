@@ -1,0 +1,14 @@
+.DS_Store
+build/*
+!build/bundle.sh
+swift-app/.build/
+swift-app/build/
+swift-app/*.xcodeproj/project.xcworkspace/xcuserdata/
+swift-app/*.xcodeproj/xcuserdata/
+python-engine/.venv*/
+python-engine/models/*.task
+!python-engine/models/.gitkeep
+python-engine/.pytest_cache/
+python-engine/**/__pycache__/
+eval/recordings/*
+!eval/recordings/.gitkeep
