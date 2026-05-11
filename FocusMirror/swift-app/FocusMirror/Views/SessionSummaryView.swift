@@ -914,100 +914,11 @@ enum SessionSummaryXLSXExporter {
         timeZone: TimeZone = .current,
         locale: Locale = .current
     ) -> [XLSXPackageFile] {
-        [
-            XLSXPackageFile(path: "[Content_Types].xml", string: contentTypesXML),
-            XLSXPackageFile(path: "_rels/.rels", string: rootRelationshipsXML),
-            XLSXPackageFile(path: "xl/workbook.xml", string: workbookXML),
-            XLSXPackageFile(path: "xl/_rels/workbook.xml.rels", string: workbookRelationshipsXML),
-            XLSXPackageFile(path: "xl/styles.xml", string: stylesXML),
-            XLSXPackageFile(path: "xl/worksheets/sheet1.xml", string: worksheetXML(for: session, timeZone: timeZone, locale: locale))
-        ]
+        SpreadsheetWorkbookPackage.packageFiles(
+            sheetName: "Session Summary",
+            worksheetXML: worksheetXML(for: session, timeZone: timeZone, locale: locale)
+        )
     }
-
-    private static let contentTypesXML = """
-    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-      <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-      <Default Extension="xml" ContentType="application/xml"/>
-      <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-      <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-      <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
-    </Types>
-    """
-
-    private static let rootRelationshipsXML = """
-    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-    </Relationships>
-    """
-
-    private static let workbookRelationshipsXML = """
-    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-      <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-    </Relationships>
-    """
-
-    private static let workbookXML = """
-    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-      <sheets>
-        <sheet name="Session Summary" sheetId="1" r:id="rId1"/>
-      </sheets>
-    </workbook>
-    """
-
-    private static let stylesXML = """
-    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-      <numFmts count="3">
-        <numFmt numFmtId="164" formatCode="0.0%"/>
-        <numFmt numFmtId="165" formatCode="[m]:ss"/>
-        <numFmt numFmtId="166" formatCode="mmm d, yyyy, h:mm AM/PM"/>
-      </numFmts>
-      <fonts count="4">
-        <font><sz val="12"/><color rgb="FF111827"/><name val="Aptos"/></font>
-        <font><b/><sz val="12"/><color rgb="FF111827"/><name val="Aptos"/></font>
-        <font><b/><sz val="18"/><color rgb="FFFFFFFF"/><name val="Aptos"/></font>
-        <font><sz val="11"/><color rgb="FF4B5563"/><name val="Aptos"/></font>
-      </fonts>
-      <fills count="5">
-        <fill><patternFill patternType="none"/></fill>
-        <fill><patternFill patternType="gray125"/></fill>
-        <fill><patternFill patternType="solid"><fgColor rgb="FF1F4FD8"/><bgColor indexed="64"/></patternFill></fill>
-        <fill><patternFill patternType="solid"><fgColor rgb="FFEAF0FF"/><bgColor indexed="64"/></patternFill></fill>
-        <fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/><bgColor indexed="64"/></patternFill></fill>
-      </fills>
-      <borders count="2">
-        <border><left/><right/><top/><bottom/><diagonal/></border>
-        <border>
-          <left style="thin"><color rgb="FFD1D5DB"/></left>
-          <right style="thin"><color rgb="FFD1D5DB"/></right>
-          <top style="thin"><color rgb="FFD1D5DB"/></top>
-          <bottom style="thin"><color rgb="FFD1D5DB"/></bottom>
-          <diagonal/>
-        </border>
-      </borders>
-      <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-      <cellXfs count="10">
-        <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-        <xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-        <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-        <xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
-        <xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
-        <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
-        <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>
-        <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>
-        <xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
-        <xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>
-      </cellXfs>
-      <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
-      <dxfs count="0"/>
-      <tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleMedium9"/>
-    </styleSheet>
-    """
 
     private static func worksheetXML(for session: FocusSession, timeZone: TimeZone, locale: Locale) -> String {
         var builder = WorksheetBuilder()
@@ -1094,6 +1005,201 @@ enum SessionSummaryXLSXExporter {
 
         return builder.xml()
     }
+}
+
+enum LifetimeSummaryXLSXExporter {
+    static func xlsx(
+        for sessions: [FocusSession],
+        generatedAt: Date = Date(),
+        timeZone: TimeZone = .current,
+        locale: Locale = .current
+    ) throws -> Data {
+        try SimpleZipArchive.archive(
+            files: packageFiles(for: sessions, generatedAt: generatedAt, timeZone: timeZone, locale: locale)
+        )
+    }
+
+    static func packageFiles(
+        for sessions: [FocusSession],
+        generatedAt: Date = Date(),
+        timeZone: TimeZone = .current,
+        locale: Locale = .current
+    ) -> [XLSXPackageFile] {
+        SpreadsheetWorkbookPackage.packageFiles(
+            sheetName: "Lifetime Summary",
+            worksheetXML: worksheetXML(for: sessions, generatedAt: generatedAt, timeZone: timeZone, locale: locale)
+        )
+    }
+
+    private static func worksheetXML(
+        for sessions: [FocusSession],
+        generatedAt: Date,
+        timeZone: TimeZone,
+        locale: Locale
+    ) -> String {
+        var builder = WorksheetBuilder()
+        let totalDuration = sessions.reduce(0) { $0 + $1.duration }
+        let sections = LifetimeSummaryExportContent.summarySections(
+            for: sessions,
+            totalDuration: totalDuration,
+            generatedAt: generatedAt,
+            timeZone: timeZone,
+            locale: locale
+        )
+
+        builder.addMergedRow("FocusMirror Lifetime Summary", fromColumn: 1, toColumn: 6, style: .title)
+        builder.addMergedRow(
+            subtitle(for: sessions, generatedAt: generatedAt, timeZone: timeZone, locale: locale),
+            fromColumn: 1,
+            toColumn: 6,
+            style: .subtitle
+        )
+        builder.addBlankRow()
+
+        for section in sections {
+            builder.addMergedRow(section.title, fromColumn: 1, toColumn: 6, style: .section)
+            builder.addRow(["Metric", "Value", "Duration", "Seconds", "Percent Of Lifetime", "Count"], style: .header)
+            for row in section.rows {
+                builder.addStyledRow([
+                    .text(row.metric, style: .body),
+                    row.valueDate.map { .excelDate($0, timeZone: timeZone, style: .dateTime) }
+                        ?? .text(row.value, style: .body),
+                    .text(row.duration, style: .body),
+                    row.secondsValue.map { .number($0, style: .number) } ?? .blank(style: .number),
+                    row.percentValue.map { .number($0, style: .percent) } ?? .blank(style: .percent),
+                    row.countValue.map { .number(Double($0), style: .number) } ?? .blank(style: .number)
+                ])
+            }
+            builder.addBlankRow()
+        }
+
+        return builder.xml()
+    }
+
+    private static func subtitle(
+        for sessions: [FocusSession],
+        generatedAt: Date,
+        timeZone: TimeZone,
+        locale: Locale
+    ) -> String {
+        let timeZoneLabel = SessionSummaryExportFormatting.timeZoneDescription(
+            timeZone,
+            on: sessions.map(\.startTime).min() ?? generatedAt,
+            locale: locale
+        )
+        guard
+            let firstStart = sessions.map(\.startTime).min(),
+            let latestEnd = sessions.map(\.endTime).max()
+        else {
+            return "No sessions recorded | \(timeZoneLabel)"
+        }
+
+        return "\(sessionCountLabel(sessions.count)) | \(SessionSummaryExportFormatting.timestamp(firstStart, timeZone: timeZone, locale: locale)) - \(SessionSummaryExportFormatting.timestamp(latestEnd, timeZone: timeZone, locale: locale)) | \(timeZoneLabel)"
+    }
+
+    private static func sessionCountLabel(_ count: Int) -> String {
+        count == 1 ? "1 session" : "\(count) sessions"
+    }
+}
+
+private enum SpreadsheetWorkbookPackage {
+    static func packageFiles(sheetName: String, worksheetXML: String) -> [XLSXPackageFile] {
+        [
+            XLSXPackageFile(path: "[Content_Types].xml", string: contentTypesXML),
+            XLSXPackageFile(path: "_rels/.rels", string: rootRelationshipsXML),
+            XLSXPackageFile(path: "xl/workbook.xml", string: workbookXML(sheetName: sheetName)),
+            XLSXPackageFile(path: "xl/_rels/workbook.xml.rels", string: workbookRelationshipsXML),
+            XLSXPackageFile(path: "xl/styles.xml", string: stylesXML),
+            XLSXPackageFile(path: "xl/worksheets/sheet1.xml", string: worksheetXML)
+        ]
+    }
+
+    private static let contentTypesXML = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+      <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+      <Default Extension="xml" ContentType="application/xml"/>
+      <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+      <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+      <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+    </Types>
+    """
+
+    private static let rootRelationshipsXML = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+    </Relationships>
+    """
+
+    private static let workbookRelationshipsXML = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+      <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+    </Relationships>
+    """
+
+    private static func workbookXML(sheetName: String) -> String {
+        """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+          <sheets>
+            <sheet name="\(xmlEscaped(sheetName))" sheetId="1" r:id="rId1"/>
+          </sheets>
+        </workbook>
+        """
+    }
+
+    private static let stylesXML = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+      <numFmts count="3">
+        <numFmt numFmtId="164" formatCode="0.0%"/>
+        <numFmt numFmtId="165" formatCode="[m]:ss"/>
+        <numFmt numFmtId="166" formatCode="mmm d, yyyy, h:mm AM/PM"/>
+      </numFmts>
+      <fonts count="4">
+        <font><sz val="12"/><color rgb="FF111827"/><name val="Aptos"/></font>
+        <font><b/><sz val="12"/><color rgb="FF111827"/><name val="Aptos"/></font>
+        <font><b/><sz val="18"/><color rgb="FFFFFFFF"/><name val="Aptos"/></font>
+        <font><sz val="11"/><color rgb="FF4B5563"/><name val="Aptos"/></font>
+      </fonts>
+      <fills count="5">
+        <fill><patternFill patternType="none"/></fill>
+        <fill><patternFill patternType="gray125"/></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FF1F4FD8"/><bgColor indexed="64"/></patternFill></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FFEAF0FF"/><bgColor indexed="64"/></patternFill></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/><bgColor indexed="64"/></patternFill></fill>
+      </fills>
+      <borders count="2">
+        <border><left/><right/><top/><bottom/><diagonal/></border>
+        <border>
+          <left style="thin"><color rgb="FFD1D5DB"/></left>
+          <right style="thin"><color rgb="FFD1D5DB"/></right>
+          <top style="thin"><color rgb="FFD1D5DB"/></top>
+          <bottom style="thin"><color rgb="FFD1D5DB"/></bottom>
+          <diagonal/>
+        </border>
+      </borders>
+      <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+      <cellXfs count="10">
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+        <xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+        <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+        <xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+        <xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>
+        <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>
+        <xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+        <xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>
+      </cellXfs>
+      <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+      <dxfs count="0"/>
+      <tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleMedium9"/>
+    </styleSheet>
+    """
 }
 
 struct XLSXPackageFile {
@@ -1272,6 +1378,125 @@ private enum SessionSummaryExportContent {
                 seconds: summary.seconds,
                 percent: summary.ratio,
                 count: summary.count
+            )
+        }
+    }
+}
+
+private enum LifetimeSummaryExportContent {
+    static func summarySections(
+        for sessions: [FocusSession],
+        totalDuration: TimeInterval,
+        generatedAt: Date,
+        timeZone: TimeZone,
+        locale: Locale
+    ) -> [ExportSummarySection] {
+        [
+            ExportSummarySection(
+                title: "Lifetime",
+                rows: lifetimeRows(
+                    for: sessions,
+                    totalDuration: totalDuration,
+                    generatedAt: generatedAt,
+                    timeZone: timeZone,
+                    locale: locale
+                )
+            ),
+            ExportSummarySection(
+                title: "Activity Breakdown",
+                rows: activityBreakdownRows(for: sessions, totalDuration: totalDuration)
+            )
+        ]
+    }
+
+    private static func lifetimeRows(
+        for sessions: [FocusSession],
+        totalDuration: TimeInterval,
+        generatedAt: Date,
+        timeZone: TimeZone,
+        locale: Locale
+    ) -> [ExportSummaryRow] {
+        let firstSessionStart = sessions.map(\.startTime).min()
+        let latestSessionStart = sessions.map(\.startTime).max()
+        let averageDuration = sessions.isEmpty ? 0 : totalDuration / Double(sessions.count)
+        let timeZoneReferenceDate = firstSessionStart ?? generatedAt
+
+        return [
+            ExportSummaryRow(metric: "Session Count", value: String(sessions.count)),
+            ExportSummaryRow(
+                metric: "First Session",
+                value: firstSessionStart.map {
+                    SessionSummaryExportFormatting.timestamp($0, timeZone: timeZone, locale: locale)
+                } ?? "No sessions recorded",
+                valueDate: firstSessionStart
+            ),
+            ExportSummaryRow(
+                metric: "Latest Session",
+                value: latestSessionStart.map {
+                    SessionSummaryExportFormatting.timestamp($0, timeZone: timeZone, locale: locale)
+                } ?? "No sessions recorded",
+                valueDate: latestSessionStart
+            ),
+            ExportSummaryRow(
+                metric: "Timezone",
+                value: SessionSummaryExportFormatting.timeZoneDescription(
+                    timeZone,
+                    on: timeZoneReferenceDate,
+                    locale: locale
+                )
+            ),
+            ExportSummaryRow(
+                metric: "Total Recorded Time",
+                duration: totalDuration,
+                seconds: totalDuration,
+                percent: totalDuration > 0 ? 1 : 0
+            ),
+            ExportSummaryRow(
+                metric: "Average Session Length",
+                duration: averageDuration,
+                seconds: averageDuration
+            )
+        ]
+    }
+
+    private static func activityBreakdownRows(
+        for sessions: [FocusSession],
+        totalDuration: TimeInterval
+    ) -> [ExportSummaryRow] {
+        durationSortedSummaries(activitySummaries(for: sessions, totalDuration: totalDuration)).map { summary in
+            ExportSummaryRow(
+                metric: summary.state.label,
+                duration: summary.seconds,
+                seconds: summary.seconds,
+                percent: totalDuration > 0 ? summary.ratio : 0,
+                count: summary.count
+            )
+        }
+    }
+
+    private static func activitySummaries(
+        for sessions: [FocusSession],
+        totalDuration: TimeInterval
+    ) -> [FocusSessionStateSummary] {
+        var totals: [DetectionState: (count: Int, seconds: TimeInterval)] = [:]
+        for state in DetectionState.allCases {
+            totals[state] = (0, 0)
+        }
+
+        for session in sessions {
+            for segment in session.segments {
+                let current = totals[segment.state] ?? (0, 0)
+                totals[segment.state] = (current.count + 1, current.seconds + segment.duration)
+            }
+        }
+
+        return DetectionState.allCases.map { state in
+            let total = totals[state] ?? (0, 0)
+            return FocusSessionStateSummary(
+                state: state,
+                count: total.count,
+                seconds: total.seconds,
+                totalSeconds: totalDuration
             )
         }
     }

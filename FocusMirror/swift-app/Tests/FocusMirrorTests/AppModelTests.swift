@@ -174,6 +174,112 @@ final class AppModelTests: XCTestCase {
         XCTAssertFalse(worksheetXML.contains("User Correction"))
     }
 
+    func testLifetimeSummaryXLSXUsesLifetimeTotalsOnly() throws {
+        let firstSession = FocusSession(
+            id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+            startTime: Date(timeIntervalSince1970: 0),
+            endTime: Date(timeIntervalSince1970: 10 * 60),
+            targetDurationSeconds: 10 * 60,
+            completionReason: .targetCompleted,
+            segments: [
+                StateSegment(startSeconds: 0, endSeconds: 5 * 60, state: .focused, confidence: 0.9),
+                StateSegment(startSeconds: 5 * 60, endSeconds: 10 * 60, state: .away, confidence: 0.8)
+            ]
+        )
+        let secondSession = FocusSession(
+            id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+            startTime: Date(timeIntervalSince1970: 86_400),
+            endTime: Date(timeIntervalSince1970: 86_400 + (20 * 60)),
+            targetDurationSeconds: nil,
+            completionReason: .manual,
+            segments: [
+                StateSegment(startSeconds: 0, endSeconds: 10 * 60, state: .focused, confidence: 0.95),
+                StateSegment(
+                    startSeconds: 10 * 60,
+                    endSeconds: 15 * 60,
+                    state: .lookingDown,
+                    confidence: 0.75,
+                    userCorrection: .actuallyFocused
+                ),
+                StateSegment(startSeconds: 15 * 60, endSeconds: 20 * 60, state: .uncertain, confidence: 0.5)
+            ]
+        )
+
+        let files = LifetimeSummaryXLSXExporter.packageFiles(
+            for: [secondSession, firstSession],
+            generatedAt: Date(timeIntervalSince1970: 172_800),
+            timeZone: TimeZone(secondsFromGMT: 0)!,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+        let workbook = try LifetimeSummaryXLSXExporter.xlsx(
+            for: [secondSession, firstSession],
+            generatedAt: Date(timeIntervalSince1970: 172_800),
+            timeZone: TimeZone(secondsFromGMT: 0)!,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+        let zipEntries = try storedZipEntries(in: workbook)
+        let worksheet = try XCTUnwrap(files.first { $0.path == "xl/worksheets/sheet1.xml" })
+        let workbookXML = try XCTUnwrap(files.first { $0.path == "xl/workbook.xml" })
+        let worksheetXML = String(decoding: worksheet.data, as: UTF8.self)
+
+        XCTAssertEqual(Set(files.map(\.path)), [
+            "[Content_Types].xml",
+            "_rels/.rels",
+            "xl/workbook.xml",
+            "xl/_rels/workbook.xml.rels",
+            "xl/styles.xml",
+            "xl/worksheets/sheet1.xml"
+        ])
+        XCTAssertEqual(Set(zipEntries.keys), Set(files.map(\.path)))
+        XCTAssertEqual(
+            String(decoding: try XCTUnwrap(zipEntries["xl/worksheets/sheet1.xml"]), as: UTF8.self),
+            worksheetXML
+        )
+        XCTAssertTrue(String(decoding: workbookXML.data, as: UTF8.self).contains("Lifetime Summary"))
+        XCTAssertTrue(worksheetXML.contains("FocusMirror Lifetime Summary"))
+        XCTAssertTrue(worksheetXML.contains("Lifetime"))
+        XCTAssertTrue(worksheetXML.contains("Activity Breakdown"))
+        XCTAssertTrue(worksheetXML.contains("Percent Of Lifetime"))
+        XCTAssertTrue(worksheetXML.contains("Session Count"))
+        XCTAssertTrue(worksheetXML.contains("First Session"))
+        XCTAssertTrue(worksheetXML.contains("Latest Session"))
+        XCTAssertTrue(worksheetXML.contains("Total Recorded Time"))
+        XCTAssertTrue(worksheetXML.contains("Average Session Length"))
+        XCTAssertTrue(worksheetXML.contains("30m"))
+        XCTAssertTrue(worksheetXML.contains("15m"))
+        XCTAssertTrue(worksheetXML.contains("Focused"))
+        XCTAssertTrue(worksheetXML.contains("Looking Down"))
+        XCTAssertTrue(worksheetXML.contains("Away From Screen"))
+        XCTAssertTrue(worksheetXML.contains("Uncertain"))
+        XCTAssertTrue(worksheetXML.contains("s=\"6\"><v>1800</v>"))
+        XCTAssertTrue(worksheetXML.contains("s=\"6\"><v>900</v>"))
+        XCTAssertTrue(worksheetXML.contains("s=\"7\"><v>1</v>"))
+        XCTAssertTrue(worksheetXML.contains("s=\"7\"><v>0.5</v>"))
+        XCTAssertTrue(worksheetXML.contains("s=\"8\"><v>25569"))
+        XCTAssertFalse(worksheetXML.contains("Timeline"))
+        XCTAssertFalse(worksheetXML.contains("Segment"))
+        XCTAssertFalse(worksheetXML.contains("Actually focused work"))
+    }
+
+    func testLifetimeSummaryXLSXHandlesEmptyHistory() throws {
+        let files = LifetimeSummaryXLSXExporter.packageFiles(
+            for: [],
+            generatedAt: Date(timeIntervalSince1970: 0),
+            timeZone: TimeZone(secondsFromGMT: 0)!,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+        let worksheet = try XCTUnwrap(files.first { $0.path == "xl/worksheets/sheet1.xml" })
+        let worksheetXML = String(decoding: worksheet.data, as: UTF8.self)
+
+        XCTAssertTrue(worksheetXML.contains("FocusMirror Lifetime Summary"))
+        XCTAssertTrue(worksheetXML.contains("No sessions recorded"))
+        XCTAssertTrue(worksheetXML.contains("Session Count"))
+        XCTAssertTrue(worksheetXML.contains("Total Recorded Time"))
+        XCTAssertTrue(worksheetXML.contains("Average Session Length"))
+        XCTAssertTrue(worksheetXML.contains("Focused"))
+        XCTAssertFalse(worksheetXML.contains("Timeline"))
+    }
+
     func testLegacySessionJSONDecodesWithoutCompletionReason() throws {
         let json = """
         [{

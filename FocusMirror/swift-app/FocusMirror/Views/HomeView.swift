@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct HomeView: View {
     @Environment(AppModel.self) private var model
@@ -7,6 +8,7 @@ struct HomeView: View {
     @State private var cameraMessage: String?
     @State private var isHistoryPresented = false
     @State private var isSettingsPresented = false
+    @State private var lifetimeExportErrorMessage: String?
 
     var body: some View {
         @Bindable var model = model
@@ -59,7 +61,11 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                     .help("Settings")
                     .popover(isPresented: $isSettingsPresented, arrowEdge: .top) {
-                        HomeSettingsPopover(appearanceMode: $model.appearanceMode)
+                        HomeSettingsPopover(
+                            appearanceMode: $model.appearanceMode,
+                            hasLifetimeSummary: !model.sessions.isEmpty,
+                            onExportLifetimeSummary: exportLifetimeSummary
+                        )
                     }
                 }
                 .padding(.top, 33)
@@ -157,7 +163,52 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
+        .alert(
+            "Export failed",
+            isPresented: Binding(
+                get: { lifetimeExportErrorMessage != nil },
+                set: { if !$0 { lifetimeExportErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                lifetimeExportErrorMessage = nil
+            }
+        } message: {
+            Text(lifetimeExportErrorMessage ?? "Unable to write the spreadsheet.")
+        }
         .navigationTitle("")
+    }
+
+    private func exportLifetimeSummary() {
+        let panel = NSSavePanel()
+        panel.title = "Export Lifetime Summary"
+        panel.prompt = "Export"
+        panel.nameFieldStringValue = defaultLifetimeExportFilename()
+        panel.allowedContentTypes = [spreadsheetContentType]
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let exportURL = url.pathExtension.isEmpty ? url.appendingPathExtension("xlsx") : url
+
+        do {
+            let workbook = try LifetimeSummaryXLSXExporter.xlsx(for: model.sessions)
+            try workbook.write(to: exportURL, options: [.atomic])
+        } catch {
+            lifetimeExportErrorMessage = "Could not export lifetime summary: \(error.localizedDescription)"
+        }
+    }
+
+    private func defaultLifetimeExportFilename() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return "FocusMirror Lifetime Summary \(formatter.string(from: Date())).xlsx"
+    }
+
+    private var spreadsheetContentType: UTType {
+        UTType(filenameExtension: "xlsx") ?? UTType(exportedAs: "org.openxmlformats.spreadsheetml.sheet")
     }
 }
 
@@ -325,17 +376,61 @@ private struct HomeHistoryPopoverRow: View {
 
 private struct HomeSettingsPopover: View {
     @Binding var appearanceMode: AppAppearanceMode
+    let hasLifetimeSummary: Bool
+    let onExportLifetimeSummary: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Appearance")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(HomeTheme.primaryText)
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Appearance")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(HomeTheme.primaryText)
 
-            AppearanceModePicker(selection: $appearanceMode)
-                .frame(width: 196, height: 32)
+                AppearanceModePicker(selection: $appearanceMode)
+                    .frame(width: 196, height: 32)
+            }
+
+            Rectangle()
+                .fill(HomeTheme.divider)
+                .frame(height: 1)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Data")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(HomeTheme.primaryText)
+
+                Button(action: onExportLifetimeSummary) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 16)
+
+                        Text("Export lifetime summary")
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.86)
+
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(HomeTheme.primaryText)
+                    .padding(.horizontal, 10)
+                    .frame(width: 196, height: 34, alignment: .leading)
+                    .background(HomeTheme.controlBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(HomeTheme.controlStroke, lineWidth: 1)
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .disabled(!hasLifetimeSummary)
+                .opacity(hasLifetimeSummary ? 1 : 0.48)
+                .help(hasLifetimeSummary ? "Export lifetime summary as XLSX" : "No sessions to export")
+            }
         }
         .padding(16)
+        .frame(width: 228)
         .background(HomeTheme.popoverBackground)
     }
 }
