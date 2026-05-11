@@ -46,9 +46,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--window-seconds", type=float, default=3.0)
     parser.add_argument("--transition-windows", type=int, default=1)
     parser.add_argument("--face-model", default=None, help="Path to MediaPipe Tasks face_landmarker.task model")
-    parser.add_argument("--looking-down-pitch", type=float, default=-15.0)
-    parser.add_argument("--looking-down-seconds", type=float, default=3.0)
-    parser.add_argument("--ear-closed-threshold", type=float, default=0.12)
+    parser.add_argument("--no-face-seconds", type=float, default=2.0)
+    parser.add_argument("--looking-down-pitch", type=float, default=-13.0)
+    parser.add_argument("--looking-down-seconds", type=float, default=2.0)
+    parser.add_argument("--eyes-closed-seconds", type=float, default=2.0)
+    parser.add_argument("--eyes-closed-ratio", type=float, default=0.6)
+    parser.add_argument("--ear-closed-threshold", type=float, default=0.14)
     parser.add_argument("--csv", type=Path, default=None, help="Write per-second truth/prediction timeline CSV")
     return parser
 
@@ -153,8 +156,11 @@ def run_detector(video: Path, args: argparse.Namespace) -> list[PredictionPoint]
     classifier = FrameClassifier(
         ClassifierConfig(
             fps=args.fps,
+            no_face_seconds=args.no_face_seconds,
             looking_down_pitch=args.looking_down_pitch,
             looking_down_seconds=args.looking_down_seconds,
+            eyes_closed_seconds=args.eyes_closed_seconds,
+            eyes_closed_ratio=args.eyes_closed_ratio,
             ear_closed_threshold=args.ear_closed_threshold,
         )
     )

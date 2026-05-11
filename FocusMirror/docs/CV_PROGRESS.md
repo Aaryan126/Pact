@@ -1,6 +1,6 @@
 # CV Progress
 
-Last updated: 2026-05-06
+Last updated: 2026-05-11
 
 ## Current Validation Status
 
@@ -9,9 +9,9 @@ Manually tested with the live webcam preview and 13 labeled local clips:
 | State | Status | Notes |
 |---|---|---|
 | `focused` | Working | `focused_low_angle_01` passed with F1 `1.000`; `focused_screen_01` still has some pose-related uncertainty. |
-| `away` | Working | Triggers when face is absent for the sustained no-face window; mixed clips are reasonable but still transition-lagged. |
-| `eyes_closed` | Improved | Split open/closed EAR thresholds improved `mixed_session_02` eyes-closed F1 to `0.766`. |
-| `looking_down` | Working, but semantically ambiguous | Uses head-pose pitch, not eye gaze. Threshold is `pitch <= -15`; sustained window is `3s`. |
+| `away` | Working, now more aggressive | Triggers after `2s` without a detected face. |
+| `eyes_closed` | More aggressive | Uses `EAR < 0.14`, `2s` duration, and 60% closed-frame agreement. |
+| `looking_down` | Working, but semantically ambiguous | Uses head-pose pitch, not eye gaze. Threshold is `pitch < -13`; sustained window is `2s`. |
 | `talking` | Partially working | Detects sustained mouth movement with recent turned-away social context; does not detect mouth-only screen-facing movement. |
 | `uncertain` | Observed during warm-up/ambiguous frames | Expected during startup and low-confidence transitions. |
 
@@ -21,8 +21,8 @@ Manually tested with the live webcam preview and 13 labeled local clips:
 
 Current defaults:
 
-- Pitch threshold: `<= -15`
-- Sustained duration: `3 seconds`
+- Pitch threshold: `< -13`
+- Sustained duration: `2 seconds`
 - Required window agreement: `85%`
 - Yaw guardrail: `< 35 degrees`
 - Roll guardrail: `< 25 degrees`

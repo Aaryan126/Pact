@@ -19,12 +19,12 @@ PYTHONPATH=. python -m focusmirror_engine.main --source webcam --fps 5 --preview
 
 Press `q` or `Esc` in the preview window to stop.
 
-`looking_down` is based on sustained head pose pitch from face landmarks, not eye gaze. The engine estimates the 3D orientation of the face using nose, chin, eye-corner, and mouth-corner landmarks. By default it requires a moderate downward head tilt for 3 seconds, then the state machine smooths the final output.
+`looking_down` is based on sustained head pose pitch from face landmarks, not eye gaze. The engine estimates the 3D orientation of the face using nose, chin, eye-corner, and mouth-corner landmarks. By default it requires a moderate downward head tilt for 2 seconds, then the state machine smooths the final output.
 
 To tune eye-closed sensitivity:
 
 ```sh
-PYTHONPATH=. python -m focusmirror_engine.main --source webcam --fps 5 --preview --no-json --ear-closed-threshold 0.12
+PYTHONPATH=. python -m focusmirror_engine.main --source webcam --fps 5 --preview --no-json --ear-closed-threshold 0.14
 ```
 
 On this Mac, the default `python3` is Python 3.13 with a tasks-only MediaPipe package. For iterative CV work, prefer the Python 3.9 venv above because `mediapipe==0.10.14` still exposes the legacy `mp.solutions.face_mesh` API.

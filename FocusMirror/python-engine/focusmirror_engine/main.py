@@ -22,9 +22,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--transition-windows", type=int, default=1)
     parser.add_argument("--max-seconds", type=float, default=None, help="Optional debug/eval stop time")
     parser.add_argument("--face-model", default=None, help="Path to MediaPipe Tasks face_landmarker.task model")
-    parser.add_argument("--looking-down-pitch", type=float, default=-15.0, help="Pitch threshold for sustained head-down detection")
-    parser.add_argument("--looking-down-seconds", type=float, default=3.0, help="Seconds required for head-down detection")
-    parser.add_argument("--ear-closed-threshold", type=float, default=0.12, help="EAR threshold below which eyes count as closed")
+    parser.add_argument("--no-face-seconds", type=float, default=2.0, help="Seconds without a face before away detection")
+    parser.add_argument("--looking-down-pitch", type=float, default=-13.0, help="Pitch threshold for sustained head-down detection")
+    parser.add_argument("--looking-down-seconds", type=float, default=2.0, help="Seconds required for head-down detection")
+    parser.add_argument("--eyes-closed-seconds", type=float, default=2.0, help="Seconds required for sustained eyes-closed detection")
+    parser.add_argument("--eyes-closed-ratio", type=float, default=0.6, help="Fraction of recent valid frames that must be closed")
+    parser.add_argument("--ear-closed-threshold", type=float, default=0.14, help="EAR threshold below which eyes count as closed")
     parser.add_argument("--preview", action="store_true", help="Show live camera/video overlay for CV debugging")
     parser.add_argument("--no-json", action="store_true", help="Suppress JSON classification output")
     parser.add_argument("--no-mirror-preview", action="store_true", help="Do not mirror the preview window")
@@ -64,8 +67,11 @@ def run(args: argparse.Namespace, *, should_stop: callable = lambda: False) -> i
     detector = MediaPipeDetector(max_num_faces=2, face_model_path=args.face_model)
     classifier_config = ClassifierConfig(
         fps=args.fps,
+        no_face_seconds=args.no_face_seconds,
         looking_down_pitch=args.looking_down_pitch,
         looking_down_seconds=args.looking_down_seconds,
+        eyes_closed_seconds=args.eyes_closed_seconds,
+        eyes_closed_ratio=args.eyes_closed_ratio,
         ear_closed_threshold=args.ear_closed_threshold,
     )
     classifier = FrameClassifier(classifier_config)

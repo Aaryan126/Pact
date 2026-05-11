@@ -39,9 +39,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--window-seconds", type=float, default=3.0)
     parser.add_argument("--transition-windows", type=int, default=1)
     parser.add_argument("--face-model", default=None)
-    parser.add_argument("--looking-down-pitch", type=float, default=-15.0)
-    parser.add_argument("--looking-down-seconds", type=float, default=3.0)
-    parser.add_argument("--ear-closed-threshold", type=float, default=0.12)
+    parser.add_argument("--no-face-seconds", type=float, default=2.0)
+    parser.add_argument("--looking-down-pitch", type=float, default=-13.0)
+    parser.add_argument("--looking-down-seconds", type=float, default=2.0)
+    parser.add_argument("--eyes-closed-seconds", type=float, default=2.0)
+    parser.add_argument("--eyes-closed-ratio", type=float, default=0.6)
+    parser.add_argument("--ear-closed-threshold", type=float, default=0.14)
     parser.add_argument("--gate", action="store_true", help="Fail if refreshed results regress past accepted thresholds")
     return parser
 

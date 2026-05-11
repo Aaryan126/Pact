@@ -23,11 +23,14 @@ DEFAULT_CLIPS = [
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Sweep looking_down pitch/duration over selected eval clips")
-    parser.add_argument("--pitches", default="-10,-15,-20,-25")
-    parser.add_argument("--seconds", default="3,4,5")
+    parser.add_argument("--pitches", default="-10,-13,-15,-20")
+    parser.add_argument("--seconds", default="2,3,4")
     parser.add_argument("--clips", default=",".join(DEFAULT_CLIPS))
     parser.add_argument("--fps", type=int, default=5)
-    parser.add_argument("--ear-closed-threshold", type=float, default=0.12)
+    parser.add_argument("--no-face-seconds", type=float, default=2.0)
+    parser.add_argument("--eyes-closed-seconds", type=float, default=2.0)
+    parser.add_argument("--eyes-closed-ratio", type=float, default=0.6)
+    parser.add_argument("--ear-closed-threshold", type=float, default=0.14)
     parser.add_argument("--window-seconds", type=float, default=3.0)
     parser.add_argument("--transition-windows", type=int, default=1)
     return parser
@@ -64,8 +67,11 @@ def evaluate_clip(clip: str, pitch: float, seconds: float, args: argparse.Namesp
         window_seconds=args.window_seconds,
         transition_windows=args.transition_windows,
         face_model=None,
+        no_face_seconds=args.no_face_seconds,
         looking_down_pitch=pitch,
         looking_down_seconds=seconds,
+        eyes_closed_seconds=args.eyes_closed_seconds,
+        eyes_closed_ratio=args.eyes_closed_ratio,
         ear_closed_threshold=args.ear_closed_threshold,
     )
     predictions = run_detector(ROOT / "eval" / "recordings" / f"{clip}.mov", detector_args)

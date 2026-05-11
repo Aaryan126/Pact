@@ -36,9 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--transitions", default="1,2,3")
     parser.add_argument("--clips", default=",".join(DEFAULT_CLIPS))
     parser.add_argument("--fps", type=int, default=5)
-    parser.add_argument("--looking-down-pitch", type=float, default=-15.0)
-    parser.add_argument("--looking-down-seconds", type=float, default=3.0)
-    parser.add_argument("--ear-closed-threshold", type=float, default=0.12)
+    parser.add_argument("--no-face-seconds", type=float, default=2.0)
+    parser.add_argument("--looking-down-pitch", type=float, default=-13.0)
+    parser.add_argument("--looking-down-seconds", type=float, default=2.0)
+    parser.add_argument("--eyes-closed-seconds", type=float, default=2.0)
+    parser.add_argument("--eyes-closed-ratio", type=float, default=0.6)
+    parser.add_argument("--ear-closed-threshold", type=float, default=0.14)
     return parser
 
 
@@ -88,8 +91,11 @@ def evaluate_config(window: float, transition: int, clips: list[str], args: argp
             window_seconds=window,
             transition_windows=transition,
             face_model=None,
+            no_face_seconds=args.no_face_seconds,
             looking_down_pitch=args.looking_down_pitch,
             looking_down_seconds=args.looking_down_seconds,
+            eyes_closed_seconds=args.eyes_closed_seconds,
+            eyes_closed_ratio=args.eyes_closed_ratio,
             ear_closed_threshold=args.ear_closed_threshold,
         )
         predictions = run_detector(ROOT / "eval" / "recordings" / f"{clip}.mov", detector_args)

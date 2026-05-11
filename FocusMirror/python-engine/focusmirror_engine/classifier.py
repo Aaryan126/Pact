@@ -19,9 +19,9 @@ STATES = (FOCUSED, AWAY, LOOKING_DOWN, TALKING, EYES_CLOSED, UNCERTAIN)
 @dataclass
 class ClassifierConfig:
     fps: int = 5
-    no_face_seconds: float = 5.0
-    looking_down_pitch: float = -15.0
-    looking_down_seconds: float = 3.0
+    no_face_seconds: float = 2.0
+    looking_down_pitch: float = -13.0
+    looking_down_seconds: float = 2.0
     looking_down_ratio: float = 0.85
     looking_down_max_yaw_degrees: float = 35.0
     looking_down_max_roll_degrees: float = 25.0
@@ -33,8 +33,9 @@ class ClassifierConfig:
     talking_social_context_ratio: float = 0.25
     mouth_variance_window_seconds: float = 3.0
     mouth_variance_threshold: float = 0.005
-    eyes_closed_seconds: float = 3.0
-    ear_closed_threshold: float = 0.12
+    eyes_closed_seconds: float = 2.0
+    eyes_closed_ratio: float = 0.6
+    ear_closed_threshold: float = 0.14
     ear_open_threshold: float = 0.08
     minimum_confidence: float = 0.5
 
@@ -131,7 +132,7 @@ class FrameClassifier:
             and s.ear < config.ear_closed_threshold
             and _is_oriented_to_screen(s, config)
         ]
-        return len(closed) / len(recent) >= 0.7
+        return len(closed) / len(recent) >= config.eyes_closed_ratio
 
     def _is_talking(self, signals: FrameSignals) -> bool:
         config = self.config

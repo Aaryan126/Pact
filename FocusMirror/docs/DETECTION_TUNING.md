@@ -19,10 +19,10 @@ Definition: no face detected in frame for sustained period.
 
 | Parameter | Default | Notes |
 |---|---|---|
-| No-face threshold | 5 seconds | Brief glances away (looking at notebook) shouldn't count |
+| No-face threshold | 2 seconds | Aggressive away detection; short face-loss periods now count sooner |
 | Re-acquire threshold | 1 second | Once face returns, transition out of `away` quickly |
 
-Edge case: face detection occasionally fails for 1-2 frames even when user is present (motion blur, partial occlusion). The 5-second threshold absorbs this.
+Edge case: face detection occasionally fails for 1-2 frames even when user is present (motion blur, partial occlusion). The 2-second threshold still absorbs very brief frame drops, but it is intentionally more likely to mark `away` if the camera loses the face for a couple seconds.
 
 ## State: `focused`
 
@@ -43,8 +43,8 @@ Definition: head pose tilted significantly down, sustained. Likely phone use or 
 
 | Parameter | Default | Notes |
 |---|---|---|
-| Pitch threshold | < -15° (looking down) | Moderate sustained head-down tilt; tuned after separating visual state from actual focus |
-| Sustained duration | 3 seconds | The state machine adds a 3-second smoothing window, so this should not be too slow |
+| Pitch threshold | < -13° (looking down) | More aggressive head-down detection than the previous -15° threshold |
+| Sustained duration | 2 seconds | Faster than the previous 3-second persistence window |
 | Window ratio | 85% of recent valid frames | Requires consistent head-down posture |
 | Yaw / roll guardrails | yaw < 35°, roll < 25° | Avoids misclassifying side turns or tilted posture as phone use |
 
@@ -81,11 +81,12 @@ Definition: face present, oriented toward screen, but eyes closed for sustained 
 
 | Parameter | Default | Notes |
 |---|---|---|
-| EAR closed threshold | 0.12 | Below this counts as closed for sustained eyes-closed detection |
+| EAR closed threshold | 0.14 | More aggressive than 0.12; catches partially closed or lower-confidence closed-eye landmarks sooner |
 | EAR open threshold | 0.08 | Above this is open enough for `focused`; separated from closed threshold to avoid excessive `uncertain` |
-| Sustained duration | 3 seconds | Allow normal blinks (~0.3s) and prolonged blinks |
+| Sustained duration | 2 seconds | Faster than the previous 3-second persistence window |
+| Closed-frame ratio | 60% of recent valid frames | More aggressive than the previous 70% agreement requirement |
 
-Note: this overlaps with `looking_down` if the user's head is down and eyes are closed (sleeping). State machine priority: `looking_down` wins if pitch is < -15°, otherwise `eyes_closed`.
+Note: this overlaps with `looking_down` if the user's head is down and eyes are closed (sleeping). State machine priority: `looking_down` wins if pitch is < -13°, otherwise `eyes_closed`.
 
 ## State: `uncertain`
 
@@ -101,7 +102,7 @@ Better to mark `uncertain` than to confidently classify wrong. The summary scree
 When multiple conditions could fire, apply this priority order:
 
 1. `away` (no face) — overrides everything
-2. `looking_down` (pitch < -15° sustained)
+2. `looking_down` (pitch < -13° sustained)
 3. `talking` (mouth + head-turn or second face)
 4. `eyes_closed` (eyes shut sustained)
 5. `focused` (default if face is present and oriented)
