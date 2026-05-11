@@ -795,203 +795,134 @@ private extension View {
     }
 }
 
-private enum SessionSummaryCSVExporter {
-    private static let headers = [
+enum SessionSummaryCSVExporter {
+    private static let summaryHeaders = [
         "Section",
-        "Item",
-        "Start Timestamp",
-        "End Timestamp",
-        "Start Offset",
-        "End Offset",
+        "Metric",
+        "Value",
         "Duration",
         "Seconds",
         "Percent Of Session",
-        "State",
-        "Effective State",
         "Count",
-        "Confidence",
-        "Correction",
-        "Counts As Confirmed Work",
         "Notes"
+    ]
+
+    private static let timelineHeaders = [
+        "Timeline Segment",
+        "Start Time",
+        "End Time",
+        "Start Offset",
+        "End Offset",
+        "State",
+        "Duration",
+        "Seconds",
+        "Percent Of Session",
+        "Confidence",
+        "User Correction"
     ]
 
     static func csv(for session: FocusSession) -> String {
         let totalDuration = session.duration
-        let rows = allRows(for: session, totalDuration: totalDuration)
-        return ([headers] + rows)
-            .map(csvLine)
-            .joined(separator: "\n") + "\n"
+        var lines = ([summaryHeaders] + summaryRows(for: session, totalDuration: totalDuration)).map(csvLine)
+        lines.append("")
+        lines += ([timelineHeaders] + timelineRows(for: session, totalDuration: totalDuration)).map(csvLine)
+
+        return lines.joined(separator: "\n") + "\n"
     }
 
-    private static func allRows(for session: FocusSession, totalDuration: TimeInterval) -> [[String]] {
-        var rows: [[String]] = []
+    private static func summaryRows(for session: FocusSession, totalDuration: TimeInterval) -> [[String]] {
+        let secondarySummaries = Array(
+            durationSortedSummaries(
+                session.detectedStateSummaries.filter { $0.state != .focused }
+            )
+            .prefix(2)
+        )
 
-        rows.append(row(section: "Session", item: "Session ID", notes: session.id.uuidString))
-        rows.append(row(section: "Session", item: "Started", startTimestamp: timestamp(session.startTime)))
-        rows.append(row(section: "Session", item: "Ended", endTimestamp: timestamp(session.endTime)))
-        rows.append(row(
-            section: "Session",
-            item: "Target Duration",
-            duration: session.targetDurationSeconds,
-            seconds: session.targetDurationSeconds,
-            notes: session.targetDurationSeconds == nil ? "Open-ended session" : ""
-        ))
-        rows.append(row(
-            section: "Session",
-            item: "Completion Reason",
-            notes: sessionCompletionReasonLabel(session)
-        ))
+        let metricSummaries = [session.detectedSummary(for: .focused)] + secondarySummaries
+        let breakdownRows = durationSortedSummaries(session.detectedStateSummaries)
 
-        rows.append(row(
-            section: "Focus Summary",
-            item: "Total Session Time",
-            startTimestamp: timestamp(session.startTime),
-            endTimestamp: timestamp(session.endTime),
-            startOffset: formatClock(0),
-            endOffset: formatClock(totalDuration),
-            duration: totalDuration,
-            seconds: totalDuration,
-            percent: totalDuration > 0 ? 1 : 0
-        ))
-        rows.append(row(
-            section: "Focus Summary",
-            item: "Focused Work",
-            duration: session.screenFocusedSeconds,
-            seconds: session.screenFocusedSeconds,
-            percent: ratio(session.screenFocusedSeconds, of: totalDuration),
-            state: DetectionState.focused.label,
-            notes: "Raw focused time before corrections"
-        ))
-        rows.append(row(
-            section: "Focus Summary",
-            item: "Confirmed Work",
-            duration: session.confirmedWorkSeconds,
-            seconds: session.confirmedWorkSeconds,
-            percent: ratio(session.confirmedWorkSeconds, of: totalDuration),
-            confirmedWork: true,
-            notes: "Screen focused plus user-corrected focused segments"
-        ))
-        rows.append(row(
-            section: "Focus Summary",
-            item: "Corrected Focus",
-            duration: session.correctedSeconds,
-            seconds: session.correctedSeconds,
-            percent: ratio(session.correctedSeconds, of: totalDuration),
-            correction: SegmentCorrection.actuallyFocused.label,
-            confirmedWork: true,
-            notes: "Time added by user corrections"
-        ))
-        rows.append(row(
-            section: "Focus Summary",
-            item: "Reviewable",
-            duration: session.reviewSeconds,
-            seconds: session.reviewSeconds,
-            percent: ratio(session.reviewSeconds, of: totalDuration),
-            notes: "Looking down or uncertain time"
-        ))
-
-        let detectedBreakdown = session.breakdown()
-        for state in DetectionState.allCases {
-            let value = detectedBreakdown[state] ?? (0, 0)
-            rows.append(row(
-                section: "Detected Breakdown",
-                item: state.label,
-                duration: value.seconds,
-                seconds: value.seconds,
-                percent: ratio(value.seconds, of: totalDuration),
-                state: state.label,
-                count: value.count,
-                confirmedWork: state.countsAsFocused,
-                notes: "Original classified state"
-            ))
+        return [
+            summaryRow(section: "Session", metric: "Session ID", value: session.id.uuidString),
+            summaryRow(section: "Session", metric: "Started", value: timestamp(session.startTime)),
+            summaryRow(section: "Session", metric: "Ended", value: timestamp(session.endTime)),
+            summaryRow(
+                section: "Session",
+                metric: "Target Duration",
+                value: session.targetDurationSeconds.map(formatCompactDuration) ?? "Open-ended"
+            ),
+            summaryRow(section: "Session", metric: "Completion Reason", value: sessionCompletionReasonLabel(session)),
+            summaryRow(
+                section: "Session",
+                metric: "Total Session Duration",
+                duration: totalDuration,
+                seconds: totalDuration,
+                percent: totalDuration > 0 ? 1 : 0
+            )
+        ] + metricSummaries.map { summary in
+            summaryRow(
+                section: "Focus Summary",
+                metric: summary.state == .focused ? "Focused Work" : summary.state.label,
+                duration: summary.seconds,
+                seconds: summary.seconds,
+                percent: summary.ratio,
+                count: summary.count
+            )
+        } + breakdownRows.map { summary in
+            summaryRow(
+                section: "Activity Breakdown",
+                metric: summary.state.label,
+                duration: summary.seconds,
+                seconds: summary.seconds,
+                percent: summary.ratio,
+                count: summary.count
+            )
         }
-
-        let adjustedBreakdown = effectiveBreakdown(for: session)
-        for state in DetectionState.allCases {
-            let value = adjustedBreakdown[state] ?? (0, 0)
-            rows.append(row(
-                section: "Correction-Adjusted Breakdown",
-                item: state.label,
-                duration: value.seconds,
-                seconds: value.seconds,
-                percent: ratio(value.seconds, of: totalDuration),
-                effectiveState: state.label,
-                count: value.count,
-                confirmedWork: state.countsAsFocused,
-                notes: "After user corrections"
-            ))
-        }
-
-        for (index, segment) in session.segments.sorted(by: { $0.startSeconds < $1.startSeconds }).enumerated() {
-            rows.append(row(
-                section: "Segments",
-                item: "Segment \(index + 1)",
-                startTimestamp: timestamp(session.startTime.addingTimeInterval(segment.startSeconds)),
-                endTimestamp: timestamp(session.startTime.addingTimeInterval(segment.endSeconds)),
-                startOffset: formatClock(segment.startSeconds),
-                endOffset: formatClock(segment.endSeconds),
-                duration: segment.duration,
-                seconds: segment.duration,
-                percent: ratio(segment.duration, of: totalDuration),
-                state: segment.state.label,
-                effectiveState: segment.effectiveState.label,
-                confidence: segment.confidence,
-                correction: segment.userCorrection?.label ?? "",
-                confirmedWork: segment.countsAsConfirmedWork,
-                notes: segment.userCorrection == nil ? "" : "User correction applied"
-            ))
-        }
-
-        return rows
     }
 
-    private static func effectiveBreakdown(for session: FocusSession) -> [DetectionState: (count: Int, seconds: TimeInterval)] {
-        var result: [DetectionState: (count: Int, seconds: TimeInterval)] = [:]
-        for state in DetectionState.allCases {
-            result[state] = (0, 0)
-        }
-        for segment in session.segments {
-            let state = segment.effectiveState
-            let current = result[state] ?? (0, 0)
-            result[state] = (current.count + 1, current.seconds + segment.duration)
-        }
-        return result
+    private static func timelineRows(for session: FocusSession, totalDuration: TimeInterval) -> [[String]] {
+        session.segments
+            .sorted {
+                if $0.startSeconds != $1.startSeconds {
+                    return $0.startSeconds < $1.startSeconds
+                }
+                return $0.endSeconds < $1.endSeconds
+            }
+            .enumerated()
+            .map { index, segment in
+                [
+                    String(index + 1),
+                    timestamp(session.startTime.addingTimeInterval(segment.startSeconds)),
+                    timestamp(session.startTime.addingTimeInterval(segment.endSeconds)),
+                    formatClock(segment.startSeconds),
+                    formatClock(segment.endSeconds),
+                    segment.state.label,
+                    formatCompactDuration(segment.duration),
+                    roundedSeconds(segment.duration),
+                    percentString(ratio(segment.duration, of: totalDuration)),
+                    percentString(segment.confidence),
+                    segment.userCorrection?.label ?? ""
+                ]
+            }
     }
 
-    private static func row(
+    private static func summaryRow(
         section: String,
-        item: String,
-        startTimestamp: String = "",
-        endTimestamp: String = "",
-        startOffset: String = "",
-        endOffset: String = "",
+        metric: String,
+        value: String = "",
         duration: TimeInterval? = nil,
         seconds: TimeInterval? = nil,
         percent: Double? = nil,
-        state: String = "",
-        effectiveState: String = "",
         count: Int? = nil,
-        confidence: Double? = nil,
-        correction: String = "",
-        confirmedWork: Bool? = nil,
         notes: String = ""
     ) -> [String] {
         [
             section,
-            item,
-            startTimestamp,
-            endTimestamp,
-            startOffset,
-            endOffset,
-            duration.map(formatClock) ?? "",
+            metric,
+            value,
+            duration.map(formatCompactDuration) ?? "",
             seconds.map(roundedSeconds) ?? "",
             percent.map(percentString) ?? "",
-            state,
-            effectiveState,
             count.map(String.init) ?? "",
-            confidence.map(percentString) ?? "",
-            correction,
-            confirmedWork.map { $0 ? "Yes" : "No" } ?? "",
             notes
         ]
     }

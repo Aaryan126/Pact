@@ -75,6 +75,37 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(formatCompactDuration(135 * 60), "2h 15m")
     }
 
+    func testSessionSummaryCSVUsesReadableSummaryAndTimelineTables() {
+        let session = FocusSession(
+            id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+            startTime: Date(timeIntervalSince1970: 0),
+            endTime: Date(timeIntervalSince1970: 20 * 60),
+            targetDurationSeconds: nil,
+            completionReason: .manual,
+            segments: [
+                StateSegment(startSeconds: 0, endSeconds: 10 * 60, state: .focused, confidence: 0.9),
+                StateSegment(
+                    startSeconds: 10 * 60,
+                    endSeconds: 15 * 60,
+                    state: .lookingDown,
+                    confidence: 0.8,
+                    userCorrection: .actuallyFocused
+                ),
+                StateSegment(startSeconds: 15 * 60, endSeconds: 20 * 60, state: .away, confidence: 0.7)
+            ]
+        )
+
+        let csv = SessionSummaryCSVExporter.csv(for: session)
+
+        XCTAssertTrue(csv.hasPrefix("Section,Metric,Value,Duration,Seconds,Percent Of Session,Count,Notes\n"))
+        XCTAssertTrue(csv.contains("\nSession,Total Session Duration,,20m,1200,100.0%,,\n"))
+        XCTAssertTrue(csv.contains("\nFocus Summary,Focused Work,,10m,600,50.0%,1,\n"))
+        XCTAssertTrue(csv.contains("\nActivity Breakdown,Looking Down,,5m,300,25.0%,1,\n"))
+        XCTAssertTrue(csv.contains("\n\nTimeline Segment,Start Time,End Time,Start Offset,End Offset,State,Duration,Seconds,Percent Of Session,Confidence,User Correction\n"))
+        XCTAssertTrue(csv.contains(",00:00,10:00,Focused,10m,600,50.0%,90.0%,\n"))
+        XCTAssertTrue(csv.contains(",10:00,15:00,Looking Down,5m,300,25.0%,80.0%,Actually focused work\n"))
+    }
+
     func testLegacySessionJSONDecodesWithoutCompletionReason() throws {
         let json = """
         [{
