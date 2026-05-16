@@ -56,11 +56,13 @@ final class PythonEngineProcess: EngineProcessControlling {
         ].compactMap { $0 }
         process.currentDirectoryURL = engineRoot
         var environment = ProcessInfo.processInfo.environment
-        environment["PYTHONPATH"] = engineRoot.path
+        environment["PYTHONPATH"] = Self.pythonPath(engineRoot: engineRoot)
         environment["PYTHONDONTWRITEBYTECODE"] = "1"
         environment["PYTHONNOUSERSITE"] = "1"
         environment["PYTHONUNBUFFERED"] = "1"
-        environment["MPLCONFIGDIR"] = Self.matplotlibConfigDirectory().path
+        let cacheDirectory = Self.engineCacheDirectory()
+        environment["XDG_CACHE_HOME"] = cacheDirectory.path
+        environment["MPLCONFIGDIR"] = Self.matplotlibConfigDirectory(in: cacheDirectory).path
         process.environment = environment
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
@@ -195,7 +197,9 @@ final class PythonEngineProcess: EngineProcessControlling {
             "Feedback manager requires a model with a single signature inference",
             "Created TensorFlow Lite XNNPACK delegate for CPU",
             "All log messages before absl::InitializeLog() is called",
-            "GL version:"
+            "GL version:",
+            "Fontconfig error:",
+            "Matplotlib is building the font cache"
         ]
         return benignFragments.contains { message.contains($0) }
     }
@@ -279,21 +283,47 @@ final class PythonEngineProcess: EngineProcessControlling {
             Bundle.main.resourceURL
         ].compactMap { $0 }
 
-        let candidates = roots.flatMap { root in
+        var candidates = roots.flatMap { root in
             [
                 root.appendingPathComponent("python-runtime/bin/python3"),
                 root.appendingPathComponent("python-runtime/bin/python")
             ]
         }
+
+        if let frameworksURL = Bundle.main.privateFrameworksURL {
+            candidates.append(contentsOf: [
+                frameworksURL.appendingPathComponent("Python.framework/Versions/Current/bin/python3"),
+                frameworksURL.appendingPathComponent("Python.framework/Versions/Current/bin/python"),
+                frameworksURL.appendingPathComponent("Python.framework/Versions/3.13/bin/python3"),
+                frameworksURL.appendingPathComponent("Python.framework/Versions/3.13/bin/python")
+            ])
+        }
+
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 
-    private static func matplotlibConfigDirectory() -> URL {
+    private static func pythonPath(engineRoot: URL) -> String {
+        var paths = [engineRoot.path]
+
+        if let packagesURL = Bundle.main.resourceURL?.appendingPathComponent("python-packages"),
+           FileManager.default.fileExists(atPath: packagesURL.path) {
+            paths.append(packagesURL.path)
+        }
+
+        return paths.joined(separator: ":")
+    }
+
+    private static func engineCacheDirectory() -> URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         let directory = base
             .appendingPathComponent("Clarity", isDirectory: true)
-            .appendingPathComponent("matplotlib", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    private static func matplotlibConfigDirectory(in cacheDirectory: URL) -> URL {
+        let directory = cacheDirectory.appendingPathComponent("matplotlib", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
     }
