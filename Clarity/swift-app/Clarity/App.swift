@@ -49,6 +49,7 @@ private struct MenuBarControlView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
     @State private var cameraMessage: String?
+    @State private var showsCameraSettingsAction = false
     @State private var isStarting = false
 
     var body: some View {
@@ -68,11 +69,26 @@ private struct MenuBarControlView: View {
                 startSessionControls(model: model)
             }
 
-            if let message = model.engineError ?? cameraMessage {
+            if let message = model.engineError {
                 Text(message)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color(red: 1.0, green: 0.34, blue: 0.34))
                     .fixedSize(horizontal: false, vertical: true)
+            } else if let cameraMessage {
+                VStack(alignment: .leading, spacing: 9) {
+                    Text(cameraMessage)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color(red: 1.0, green: 0.34, blue: 0.34))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if showsCameraSettingsAction {
+                        Button("Open Settings") {
+                            CameraPermission.openSettings()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
             }
 
             Divider()
@@ -232,6 +248,7 @@ private struct MenuBarControlView: View {
 
             Button {
                 cameraMessage = nil
+                showsCameraSettingsAction = false
                 model.latestCompletedSession = nil
             } label: {
                 Label("New Session", systemImage: "plus")
@@ -280,6 +297,7 @@ private struct MenuBarControlView: View {
         guard !isStarting else { return }
         isStarting = true
         cameraMessage = nil
+        showsCameraSettingsAction = false
 
         Task {
             let status = await CameraPermission.request()
@@ -287,7 +305,8 @@ private struct MenuBarControlView: View {
             await MainActor.run {
                 isStarting = false
                 guard status == .authorized else {
-                    cameraMessage = "Camera permission is required before starting."
+                    cameraMessage = CameraPermission.settingsGuidanceMessage
+                    showsCameraSettingsAction = status.showsSettingsAction
                     showMainWindow()
                     return
                 }

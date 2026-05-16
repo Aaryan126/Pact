@@ -25,30 +25,37 @@ struct OnboardingView: View {
             }
             .padding(.vertical, 8)
 
-            HStack(spacing: 12) {
-                Button(permissionStatus == .authorized ? "Continue" : "Grant Camera Access") {
+            VStack(alignment: .leading, spacing: 12) {
+                Button(permissionStatus.showsSettingsAction ? "Open Settings" : "Continue") {
                     Task {
-                        if permissionStatus == .authorized {
+                        switch permissionStatus {
+                        case .authorized:
                             onComplete()
-                        } else {
+                        case .notDetermined:
                             permissionStatus = await CameraPermission.request()
                             if permissionStatus == .authorized {
                                 onComplete()
                             }
+                        case .denied, .restricted:
+                            CameraPermission.openSettings()
                         }
                     }
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
 
-                if permissionStatus == .denied || permissionStatus == .restricted {
-                    Text("Camera permission is required to measure sessions.")
+                if permissionStatus.showsSettingsAction {
+                    Text(CameraPermission.settingsGuidanceMessage)
                         .foregroundStyle(HomeTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer()
         }
         .padding(48)
+        .onAppear {
+            permissionStatus = CameraPermission.currentStatus
+        }
     }
 }
 

@@ -6,6 +6,7 @@ struct HomeView: View {
     @Environment(AppModel.self) private var model
     let openSession: (UUID) -> Void
     @State private var cameraMessage: String?
+    @State private var showsCameraSettingsAction = false
     @State private var isHistoryPresented = false
     @State private var isSettingsPresented = false
     @State private var lifetimeExportErrorMessage: String?
@@ -113,9 +114,12 @@ struct HomeView: View {
 
                     Button {
                         Task {
+                            cameraMessage = nil
+                            showsCameraSettingsAction = false
                             let status = await CameraPermission.request()
                             guard status == .authorized else {
-                                cameraMessage = "Camera permission is required before starting."
+                                cameraMessage = CameraPermission.settingsGuidanceMessage
+                                showsCameraSettingsAction = status.showsSettingsAction
                                 return
                             }
                             model.startSession()
@@ -136,7 +140,7 @@ struct HomeView: View {
                     .contentShape(RoundedRectangle(cornerRadius: 8))
                     .padding(.top, 32)
 
-                    if let error = model.engineError ?? cameraMessage {
+                    if let error = model.engineError {
                         Text(error)
                             .foregroundStyle(Color(red: 1.0, green: 0.28, blue: 0.30))
                             .font(.system(size: 12, weight: .medium))
@@ -144,6 +148,24 @@ struct HomeView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(width: 414)
                             .padding(.top, 14)
+                    } else if let cameraMessage {
+                        VStack(spacing: 10) {
+                            Text(cameraMessage)
+                                .foregroundStyle(Color(red: 1.0, green: 0.28, blue: 0.30))
+                                .font(.system(size: 12, weight: .medium))
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            if showsCameraSettingsAction {
+                                Button("Open Settings") {
+                                    CameraPermission.openSettings()
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+                        .frame(width: 414)
+                        .padding(.top, 14)
                     }
 
                     Spacer(minLength: 28)

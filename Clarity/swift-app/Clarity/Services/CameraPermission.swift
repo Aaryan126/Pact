@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import Foundation
 
@@ -19,6 +20,9 @@ enum CameraPermissionStatus {
 }
 
 enum CameraPermission {
+    static let settingsGuidanceMessage =
+        "Camera access is needed to measure focus sessions. You can continue after enabling camera access in System Settings."
+
     static var currentStatus: CameraPermissionStatus {
         CameraPermissionStatus(AVCaptureDevice.authorizationStatus(for: .video))
     }
@@ -31,5 +35,22 @@ enum CameraPermission {
 
         let granted = await AVCaptureDevice.requestAccess(for: .video)
         return granted ? .authorized : CameraPermissionStatus(AVCaptureDevice.authorizationStatus(for: .video))
+    }
+
+    @MainActor
+    static func openSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") else { return }
+        NSWorkspace.shared.open(url)
+    }
+}
+
+extension CameraPermissionStatus {
+    var showsSettingsAction: Bool {
+        switch self {
+        case .denied, .restricted:
+            return true
+        case .authorized, .notDetermined:
+            return false
+        }
     }
 }
