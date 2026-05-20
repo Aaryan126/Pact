@@ -59,6 +59,7 @@ if [[ -n "$SANDBOX_ENTITLEMENTS_FILE" ]]; then
   mkdir -p "$(dirname "$NESTED_EXECUTABLE_ENTITLEMENTS_FILE")"
   /usr/libexec/PlistBuddy -c "Clear dict" "$NESTED_EXECUTABLE_ENTITLEMENTS_FILE" >/dev/null 2>&1 || true
   /usr/libexec/PlistBuddy -c "Add :com.apple.security.app-sandbox bool true" "$NESTED_EXECUTABLE_ENTITLEMENTS_FILE"
+  /usr/libexec/PlistBuddy -c "Add :com.apple.security.inherit bool true" "$NESTED_EXECUTABLE_ENTITLEMENTS_FILE"
 fi
 
 prune_non_runtime_artifacts() {

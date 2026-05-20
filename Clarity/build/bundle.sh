@@ -13,7 +13,9 @@ SWIFTPM_SCRATCH="$ROOT/build/swiftpm"
 CODESIGN_IDENTITY="${CLARITY_CODESIGN_IDENTITY:--}"
 INSTALLER_IDENTITY="${CLARITY_INSTALLER_IDENTITY:-}"
 PROVISIONING_PROFILE="${CLARITY_PROVISIONING_PROFILE:-}"
+VENDOR_PYTHON="${CLARITY_VENDOR_PYTHON:-1}"
 PKG="$ROOT/build/Clarity.pkg"
+NESTED_EXECUTABLE_ENTITLEMENTS="$ROOT/build/ClarityNestedExecutable.entitlements"
 
 export HOME="$ROOT/build/home"
 export CLANG_MODULE_CACHE_PATH="$ROOT/build/module-cache"
@@ -40,10 +42,12 @@ rsync -a --delete \
   --exclude "*.pyc" \
   "$ROOT/python-engine/" "$RESOURCES/python-engine/"
 
-if [[ "${CLARITY_VENDOR_PYTHON:-0}" == "1" ]]; then
+if [[ "$VENDOR_PYTHON" == "1" ]]; then
   python3 -m venv --copies "$PYTHON_RUNTIME"
-  "$PYTHON_RUNTIME/bin/python3" -m pip install --upgrade pip
-  "$PYTHON_RUNTIME/bin/python3" -m pip install "$ROOT/python-engine"
+  "$PYTHON_RUNTIME/bin/python3" -m pip install \
+    --disable-pip-version-check \
+    --no-compile \
+    "$ROOT/python-engine"
   while IFS= read -r site_packages; do
     find "$site_packages" -maxdepth 1 \( \
       -name "pip" -o \
@@ -64,7 +68,7 @@ if [[ "${CLARITY_VENDOR_PYTHON:-0}" == "1" ]]; then
     fi
   done < <(find "$PYTHON_RUNTIME" -type f -perm -111 -print0)
 else
-  echo "Warning: Python runtime not vendored. Release builds require CLARITY_VENDOR_PYTHON=1."
+  echo "Warning: Python runtime not vendored. This bundle cannot run focus sessions."
 fi
 
 if [[ -n "$PROVISIONING_PROFILE" ]]; then
@@ -72,10 +76,25 @@ if [[ -n "$PROVISIONING_PROFILE" ]]; then
 fi
 
 if command -v codesign >/dev/null 2>&1; then
+  mkdir -p "$(dirname "$NESTED_EXECUTABLE_ENTITLEMENTS")"
+  /usr/libexec/PlistBuddy -c "Clear dict" "$NESTED_EXECUTABLE_ENTITLEMENTS" >/dev/null 2>&1 || true
+  /usr/libexec/PlistBuddy -c "Add :com.apple.security.app-sandbox bool true" "$NESTED_EXECUTABLE_ENTITLEMENTS"
+  /usr/libexec/PlistBuddy -c "Add :com.apple.security.inherit bool true" "$NESTED_EXECUTABLE_ENTITLEMENTS"
+
   sign_macho_files() {
     local root="$1"
+    local file_info
     while IFS= read -r -d '' file; do
-      if file "$file" | grep -q "Mach-O"; then
+      file_info="$(file "$file")"
+      if [[ "$file_info" != *"Mach-O"* ]]; then
+        continue
+      fi
+
+      if [[ "$file_info" == *"executable"* ]]; then
+        codesign --force --sign "$CODESIGN_IDENTITY" \
+          --entitlements "$NESTED_EXECUTABLE_ENTITLEMENTS" \
+          "$file"
+      else
         codesign --force --sign "$CODESIGN_IDENTITY" "$file"
       fi
     done < <(find "$root" -type f -print0)

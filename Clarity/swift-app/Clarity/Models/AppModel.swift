@@ -19,6 +19,23 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
 @Observable
 final class AppModel {
     private static let appearanceModeDefaultsKey = "appearanceMode"
+    private static let savedSessionsUnavailableMessage =
+        "Clarity could not load saved sessions. You can still start a new session."
+    private static let sessionSaveFailedMessage =
+        "Session completed, but Clarity could not save it. Check available disk space and try again."
+    private static let correctionSaveFailedMessage =
+        "Clarity could not save this correction. Check available disk space and try again."
+    private static let historyDeleteFailedMessage =
+        "Clarity could not clear history. Try again."
+    private static let cameraUnavailableMessage =
+        "Clarity could not access the camera. Make sure camera access is on and no other app is using the camera, then try again."
+    private static let processingStartupFailedMessage =
+        "Clarity could not start local focus processing. Quit and reopen Clarity, then try again."
+    private static let processingInterruptedMessage =
+        "Clarity stopped this session because local focus processing was interrupted. Restart the session when your camera is available."
+    private static let processingStalledMessage =
+        "Clarity stopped this session because camera processing stopped. Restart the session when your camera is available."
+
     private let store: any SessionStoring
     private let engine: any EngineProcessControlling
     private let completionNotifier: any SessionCompletionNotifying
@@ -56,7 +73,7 @@ final class AppModel {
             self.sessions = try store.loadSessions()
         } catch {
             self.sessions = []
-            self.engineError = error.localizedDescription
+            self.engineError = Self.savedSessionsUnavailableMessage
         }
     }
 
@@ -93,9 +110,9 @@ final class AppModel {
                 self?.consume(event)
             }
         }
-        engine.onError = { [weak self] message in
+        engine.onError = { [weak self] failure in
             Task { @MainActor in
-                self?.handleEngineError(message)
+                self?.handleEngineError(failure)
             }
         }
         engine.onTermination = { [weak self] termination in
@@ -108,7 +125,7 @@ final class AppModel {
             scheduleTargetCompletion(startedAt: now, targetDuration: activeTargetDuration)
             startEngineWatchdog(startedAt: now)
         } catch {
-            engineError = error.localizedDescription
+            engineError = Self.userFacingStartFailureMessage(for: error)
             resetActiveState()
         }
     }
@@ -124,7 +141,7 @@ final class AppModel {
             latestCompletedSession = nil
             engineError = nil
         } catch {
-            engineError = error.localizedDescription
+            engineError = Self.historyDeleteFailedMessage
         }
     }
 
@@ -165,7 +182,7 @@ final class AppModel {
             sessions = try store.loadSessions()
             engineError = nil
         } catch {
-            engineError = "Session completed, but Clarity could not save it: \(error.localizedDescription)"
+            engineError = Self.sessionSaveFailedMessage
         }
 
         latestCompletedSession = session
@@ -188,7 +205,7 @@ final class AppModel {
                 latestCompletedSession = session
             }
         } catch {
-            engineError = "Could not save correction: \(error.localizedDescription)"
+            engineError = Self.correctionSaveFailedMessage
         }
     }
 
@@ -254,17 +271,15 @@ final class AppModel {
 
                 let lastHeartbeat = self.lastEngineEventReceivedAt ?? start
                 if Date().timeIntervalSince(lastHeartbeat) >= self.engineStallTimeout {
-                    self.abortActiveSession(
-                        message: "Clarity stopped the session because the detection engine stopped sending classifications. Please restart the session."
-                    )
+                    self.abortActiveSession(message: Self.processingStalledMessage)
                     return
                 }
             }
         }
     }
 
-    private func handleEngineError(_ message: String) {
-        let displayMessage = "Clarity stopped the session because the detection engine failed: \(message)"
+    private func handleEngineError(_ failure: EngineProcessFailure) {
+        let displayMessage = Self.userFacingRuntimeMessage(for: failure, isSessionActive: isSessionActive)
         if isSessionActive {
             abortActiveSession(message: displayMessage)
         } else {
@@ -273,10 +288,41 @@ final class AppModel {
     }
 
     private func handleUnexpectedEngineTermination(_ termination: EngineProcessTermination) {
+        _ = termination
         guard isSessionActive else { return }
-        abortActiveSession(
-            message: "Clarity stopped the session because the detection engine \(termination.reason) unexpectedly with status \(termination.status). Please restart the session."
-        )
+        abortActiveSession(message: Self.processingInterruptedMessage)
+    }
+
+    private static func userFacingStartFailureMessage(for error: Error) -> String {
+        if let processError = error as? EngineProcessError {
+            switch processError {
+            case .engineNotFound, .pythonRuntimeNotFound:
+                return processingStartupFailedMessage
+            }
+        }
+        return processingStartupFailedMessage
+    }
+
+    private static func userFacingRuntimeMessage(
+        for failure: EngineProcessFailure,
+        isSessionActive: Bool
+    ) -> String {
+        if isCameraFailure(failure) {
+            return cameraUnavailableMessage
+        }
+        return isSessionActive ? processingInterruptedMessage : processingStartupFailedMessage
+    }
+
+    private static func isCameraFailure(_ failure: EngineProcessFailure) -> Bool {
+        if ["source_open_failed", "camera_unavailable"].contains(failure.code) {
+            return true
+        }
+
+        let message = failure.message.lowercased()
+        return message.contains("camera")
+            || message.contains("video source")
+            || message.contains("capture")
+            || message.contains("webcam")
     }
 
     private func abortActiveSession(message: String) {

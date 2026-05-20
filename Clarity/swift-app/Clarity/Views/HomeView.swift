@@ -3,10 +3,13 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct HomeView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(AppModel.self) private var model
     let openSession: (UUID) -> Void
     @State private var cameraMessage: String?
     @State private var showsCameraSettingsAction = false
+    @State private var permissionStatus = CameraPermission.currentStatus
+    @State private var hasCameraDevice = CameraPermission.hasVideoCaptureDevice
     @State private var isHistoryPresented = false
     @State private var isSettingsPresented = false
     @State private var lifetimeExportErrorMessage: String?
@@ -116,7 +119,18 @@ struct HomeView: View {
                         Task {
                             cameraMessage = nil
                             showsCameraSettingsAction = false
-                            let status = await CameraPermission.request()
+                            refreshPermissionState()
+                            guard hasCameraDevice else {
+                                cameraMessage = "Clarity needs a connected camera to measure focus sessions."
+                                return
+                            }
+                            let status: CameraPermissionStatus
+                            if permissionStatus == .notDetermined {
+                                status = await CameraPermission.request()
+                            } else {
+                                status = permissionStatus
+                            }
+                            refreshPermissionState()
                             guard status == .authorized else {
                                 cameraMessage = CameraPermission.settingsGuidanceMessage
                                 showsCameraSettingsAction = status.showsSettingsAction
@@ -199,6 +213,16 @@ struct HomeView: View {
             Text(lifetimeExportErrorMessage ?? "Unable to write the spreadsheet.")
         }
         .navigationTitle("")
+        .onAppear {
+            refreshPermissionState()
+            updatePermissionMessageIfBlocked()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                refreshPermissionState()
+                updatePermissionMessageIfBlocked()
+            }
+        }
     }
 
     private func exportLifetimeSummary() {
@@ -231,6 +255,28 @@ struct HomeView: View {
 
     private var spreadsheetContentType: UTType {
         UTType(filenameExtension: "xlsx") ?? UTType(exportedAs: "org.openxmlformats.spreadsheetml.sheet")
+    }
+
+    private func refreshPermissionState() {
+        hasCameraDevice = CameraPermission.hasVideoCaptureDevice
+        permissionStatus = CameraPermission.currentStatus
+    }
+
+    private func updatePermissionMessageIfBlocked() {
+        guard !model.isSessionActive else { return }
+        guard hasCameraDevice else {
+            cameraMessage = "Clarity needs a connected camera to measure focus sessions."
+            showsCameraSettingsAction = false
+            return
+        }
+
+        if permissionStatus.showsSettingsAction {
+            cameraMessage = CameraPermission.settingsGuidanceMessage
+            showsCameraSettingsAction = true
+        } else if permissionStatus == .authorized {
+            cameraMessage = nil
+            showsCameraSettingsAction = false
+        }
     }
 }
 

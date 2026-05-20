@@ -27,6 +27,10 @@ enum CameraPermission {
         CameraPermissionStatus(AVCaptureDevice.authorizationStatus(for: .video))
     }
 
+    static var hasVideoCaptureDevice: Bool {
+        AVCaptureDevice.default(for: .video) != nil
+    }
+
     static func request() async -> CameraPermissionStatus {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         guard status == .notDetermined else {

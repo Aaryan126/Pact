@@ -300,6 +300,15 @@ private struct MenuBarControlView: View {
         showsCameraSettingsAction = false
 
         Task {
+            guard CameraPermission.hasVideoCaptureDevice else {
+                await MainActor.run {
+                    isStarting = false
+                    cameraMessage = "Clarity needs a connected camera to measure focus sessions."
+                    showMainWindow()
+                }
+                return
+            }
+
             let status = await CameraPermission.request()
 
             await MainActor.run {

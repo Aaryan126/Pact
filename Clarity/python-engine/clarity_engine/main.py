@@ -96,6 +96,12 @@ def run(args: argparse.Namespace, *, should_stop: callable = lambda: False) -> i
 
             ok, frame = capture.read()
             if not ok:
+                if is_webcam:
+                    emit_error(
+                        "The camera stream ended or became unavailable.",
+                        code="camera_unavailable",
+                    )
+                    return 1
                 break
 
             if is_webcam:

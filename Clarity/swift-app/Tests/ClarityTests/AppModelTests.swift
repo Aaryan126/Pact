@@ -323,13 +323,42 @@ final class AppModelTests: XCTestCase {
         model.selectedLength = .openEnded
 
         model.startSession()
-        engine.onError?("Could not open video source: webcam")
+        engine.onError?(
+            EngineProcessFailure(
+                message: "Could not open video source: webcam",
+                code: "source_open_failed"
+            )
+        )
         try await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertFalse(model.isSessionActive)
         XCTAssertNil(model.latestCompletedSession)
         XCTAssertTrue(store.savedSessions.isEmpty)
-        XCTAssertTrue(model.engineError?.contains("detection engine failed") == true)
+        XCTAssertEqual(
+            model.engineError,
+            "Clarity could not access the camera. Make sure camera access is on and no other app is using the camera, then try again."
+        )
+    }
+
+    func testUnexpectedEngineTerminationUsesUserFacingMessage() async throws {
+        let engine = MockEngine()
+        let store = MockSessionStore()
+        let model = AppModel(store: store, engine: engine, completionNotifier: MockCompletionNotifier())
+        model.selectedLength = .openEnded
+
+        model.startSession()
+        engine.onTermination?(EngineProcessTermination(status: 5, reason: "terminated"))
+        try await Task.sleep(nanoseconds: 10_000_000)
+
+        XCTAssertFalse(model.isSessionActive)
+        XCTAssertNil(model.latestCompletedSession)
+        XCTAssertTrue(store.savedSessions.isEmpty)
+        XCTAssertEqual(
+            model.engineError,
+            "Clarity stopped this session because local focus processing was interrupted. Restart the session when your camera is available."
+        )
+        XCTAssertFalse(model.engineError?.contains("status") == true)
+        XCTAssertFalse(model.engineError?.contains("terminated") == true)
     }
 }
 
@@ -389,7 +418,7 @@ private func uint32LE(_ bytes: [UInt8], _ offset: Int) -> UInt32 {
 @MainActor
 private final class MockEngine: EngineProcessControlling {
     var onEvent: ((EngineEvent) -> Void)?
-    var onError: ((String) -> Void)?
+    var onError: ((EngineProcessFailure) -> Void)?
     var onTermination: ((EngineProcessTermination) -> Void)?
     var didStart = false
     var didStop = false

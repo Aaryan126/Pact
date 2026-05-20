@@ -3,11 +3,16 @@ import Foundation
 @MainActor
 protocol EngineProcessControlling: AnyObject {
     var onEvent: ((EngineEvent) -> Void)? { get set }
-    var onError: ((String) -> Void)? { get set }
+    var onError: ((EngineProcessFailure) -> Void)? { get set }
     var onTermination: ((EngineProcessTermination) -> Void)? { get set }
 
     func start(fps: Int) throws
     func stop()
+}
+
+struct EngineProcessFailure: Equatable {
+    let message: String
+    let code: String?
 }
 
 struct EngineProcessTermination: Equatable {
@@ -18,7 +23,7 @@ struct EngineProcessTermination: Equatable {
 @MainActor
 final class PythonEngineProcess: EngineProcessControlling {
     var onEvent: ((EngineEvent) -> Void)?
-    var onError: ((String) -> Void)?
+    var onError: ((EngineProcessFailure) -> Void)?
     var onTermination: ((EngineProcessTermination) -> Void)?
 
     private var process: Process?
@@ -94,6 +99,9 @@ final class PythonEngineProcess: EngineProcessControlling {
                 stderrPipe.fileHandleForReading.readabilityHandler = nil
 
                 if isCurrentProcess {
+                    if !self.stderrBuffer.isEmpty {
+                        self.consumeStderrLine(self.stderrBuffer)
+                    }
                     self.process = nil
                     self.stdoutPipe = nil
                     self.stderrPipe = nil
@@ -150,7 +158,12 @@ final class PythonEngineProcess: EngineProcessControlling {
                 let event = try decoder.decode(EngineEvent.self, from: Data(lineData))
                 onEvent?(event)
             } catch {
-                onError?("Could not decode engine event: \(error.localizedDescription)")
+                onError?(
+                    EngineProcessFailure(
+                        message: "Could not decode engine event: \(error.localizedDescription)",
+                        code: "event_decode_failed"
+                    )
+                )
             }
         }
     }
@@ -171,11 +184,11 @@ final class PythonEngineProcess: EngineProcessControlling {
 
         if let payload = try? decoder.decode(EngineErrorPayload.self, from: data),
            payload.type == "error" {
-            onError?(payload.message)
+            onError?(EngineProcessFailure(message: payload.message, code: payload.code))
             return
         }
 
-        onError?(trimmed)
+        onError?(EngineProcessFailure(message: trimmed, code: "engine_stderr"))
     }
 
     private static func isBenignEngineStderr(_ message: String) -> Bool {
@@ -207,22 +220,23 @@ final class PythonEngineProcess: EngineProcessControlling {
     private static func findEngineRoot() -> URL? {
         let fileManager = FileManager.default
 
-        let sourceFileURL = URL(fileURLWithPath: #filePath)
-        let sourceRepoRoot = sourceFileURL
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-
         let explicitRoot = ProcessInfo.processInfo.environment["CLARITY_ENGINE_ROOT"]
             .map { URL(fileURLWithPath: $0).standardized }
 
-        let anchors = [
-            URL(fileURLWithPath: fileManager.currentDirectoryPath),
+        var anchors = [
             Bundle.main.bundleURL,
             Bundle.main.resourceURL,
-            sourceRepoRoot
         ].compactMap { $0 }
+
+#if DEBUG
+        anchors.append(URL(fileURLWithPath: fileManager.currentDirectoryPath))
+        anchors.append(sourceRepoRoot())
+#else
+        if ProcessInfo.processInfo.environment["CLARITY_ALLOW_SOURCE_ENGINE_ROOT"] == "1" {
+            anchors.append(URL(fileURLWithPath: fileManager.currentDirectoryPath))
+            anchors.append(sourceRepoRoot())
+        }
+#endif
 
         var candidates = [
             explicitRoot,
@@ -234,6 +248,14 @@ final class PythonEngineProcess: EngineProcessControlling {
         }
 
         return candidates.first { isEngineRoot($0) }
+    }
+
+    private static func sourceRepoRoot() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
     }
 
     private static func engineRootCandidates(from anchor: URL) -> [URL] {
@@ -336,14 +358,15 @@ enum EngineProcessError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .engineNotFound:
-            "Could not find bundled python-engine directory."
+            "Clarity could not start local focus processing. Quit and reopen Clarity, then try again."
         case .pythonRuntimeNotFound:
-            "Could not find the bundled Python runtime. Rebuild the app with CLARITY_VENDOR_PYTHON=1 for release."
+            "Clarity could not start local focus processing. Quit and reopen Clarity, then try again."
         }
     }
 }
 
 private struct EngineErrorPayload: Decodable {
     let type: String
+    let code: String?
     let message: String
 }
