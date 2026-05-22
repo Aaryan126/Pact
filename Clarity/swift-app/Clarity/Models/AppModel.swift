@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import OSLog
 
 enum AppAppearanceMode: String, CaseIterable, Identifiable {
     case light
@@ -18,6 +19,10 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class AppModel {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.aaryan.clarity",
+        category: "AppModel"
+    )
     private static let appearanceModeDefaultsKey = "appearanceMode"
     private static let savedSessionsUnavailableMessage =
         "Clarity could not load saved sessions. You can still start a new session."
@@ -50,6 +55,7 @@ final class AppModel {
 
     var sessions: [FocusSession] = []
     var activeSessionStartedAt: Date?
+    var isClassificationFallbackActive = false
     var selectedLength: SessionLength = .minutes(60)
     var latestCompletedSession: FocusSession?
     var engineError: String?
@@ -104,6 +110,7 @@ final class AppModel {
         activeSegments = []
         lastEventElapsed = 0
         lastEngineEventReceivedAt = nil
+        isClassificationFallbackActive = false
 
         engine.onEvent = { [weak self] event in
             Task { @MainActor in
@@ -125,8 +132,9 @@ final class AppModel {
             scheduleTargetCompletion(startedAt: now, targetDuration: activeTargetDuration)
             startEngineWatchdog(startedAt: now)
         } catch {
-            engineError = Self.userFacingStartFailureMessage(for: error)
-            resetActiveState()
+            continueWithoutClassification(
+                reason: "Engine startup failed: \(Self.userFacingStartFailureMessage(for: error))"
+            )
         }
     }
 
@@ -174,7 +182,7 @@ final class AppModel {
             endTime: end,
             targetDurationSeconds: targetDuration,
             completionReason: reason,
-            segments: normalizedActiveSegments(upTo: finalElapsed)
+            segments: finalizedActiveSegments(upTo: finalElapsed)
         )
 
         do {
@@ -252,6 +260,8 @@ final class AppModel {
     }
 
     private func scheduleTargetCompletion(startedAt start: Date, targetDuration: TimeInterval?) {
+        targetCompletionTask?.cancel()
+        targetCompletionTask = nil
         guard let targetDuration else { return }
         let nanoseconds = UInt64(max(0, targetDuration) * 1_000_000_000)
         targetCompletionTask = Task { @MainActor [weak self] in
@@ -271,7 +281,7 @@ final class AppModel {
 
                 let lastHeartbeat = self.lastEngineEventReceivedAt ?? start
                 if Date().timeIntervalSince(lastHeartbeat) >= self.engineStallTimeout {
-                    self.abortActiveSession(message: Self.processingStalledMessage)
+                    self.continueWithoutClassification(reason: Self.processingStalledMessage)
                     return
                 }
             }
@@ -281,16 +291,17 @@ final class AppModel {
     private func handleEngineError(_ failure: EngineProcessFailure) {
         let displayMessage = Self.userFacingRuntimeMessage(for: failure, isSessionActive: isSessionActive)
         if isSessionActive {
-            abortActiveSession(message: displayMessage)
+            continueWithoutClassification(reason: displayMessage)
         } else {
             engineError = displayMessage
         }
     }
 
     private func handleUnexpectedEngineTermination(_ termination: EngineProcessTermination) {
-        _ = termination
         guard isSessionActive else { return }
-        abortActiveSession(message: Self.processingInterruptedMessage)
+        continueWithoutClassification(
+            reason: "\(Self.processingInterruptedMessage) status=\(termination.status) reason=\(termination.reason)"
+        )
     }
 
     private static func userFacingStartFailureMessage(for error: Error) -> String {
@@ -333,6 +344,17 @@ final class AppModel {
         engineError = message
     }
 
+    private func continueWithoutClassification(reason: String) {
+        guard let start = activeStartTime else { return }
+        Self.logger.error("Continuing session without local classification. Reason: \(reason, privacy: .public)")
+        engine.stop()
+        engineWatchdogTask?.cancel()
+        engineWatchdogTask = nil
+        isClassificationFallbackActive = true
+        engineError = nil
+        scheduleTargetCompletion(startedAt: start, targetDuration: activeTargetDuration)
+    }
+
     private func cancelActiveTasks() {
         targetCompletionTask?.cancel()
         targetCompletionTask = nil
@@ -347,6 +369,27 @@ final class AppModel {
         activeSegments = []
         lastEventElapsed = 0
         lastEngineEventReceivedAt = nil
+        isClassificationFallbackActive = false
+    }
+
+    private func finalizedActiveSegments(upTo finalElapsed: TimeInterval) -> [StateSegment] {
+        var segments = normalizedActiveSegments(upTo: finalElapsed)
+        guard isClassificationFallbackActive, finalElapsed > 0 else {
+            return segments
+        }
+
+        let uncertainStart = segments.last?.endSeconds ?? 0
+        if uncertainStart < finalElapsed {
+            segments.append(
+                StateSegment(
+                    startSeconds: uncertainStart,
+                    endSeconds: finalElapsed,
+                    state: .uncertain,
+                    confidence: 0
+                )
+            )
+        }
+        return segments
     }
 
     private func normalizedActiveSegments(upTo finalElapsed: TimeInterval) -> [StateSegment] {

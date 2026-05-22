@@ -145,7 +145,7 @@ private struct MenuBarControlView: View {
 
     private var headerStatus: String {
         if model.isSessionActive {
-            return "Camera active"
+            return model.isClassificationFallbackActive ? "Session active" : "Camera active"
         }
         if model.latestCompletedSession != nil {
             return "Session complete"
@@ -155,7 +155,7 @@ private struct MenuBarControlView: View {
 
     private var headerAccent: Color {
         if model.isSessionActive {
-            return .red
+            return model.isClassificationFallbackActive ? HomeTheme.primaryBlue : .red
         }
         if model.latestCompletedSession != nil {
             return DetectionState.focused.color
@@ -194,6 +194,13 @@ private struct MenuBarControlView: View {
     }
 
     private func activeSessionDetail(elapsed: TimeInterval) -> String {
+        if model.isClassificationFallbackActive {
+            guard let target = model.activeTargetDurationSeconds else {
+                return "Open-ended. No recording."
+            }
+            return "\(formatClock(max(0, target - elapsed))) remaining. No recording."
+        }
+
         guard let target = model.activeTargetDurationSeconds else {
             return "Open-ended. Processing locally."
         }

@@ -124,6 +124,93 @@ thin_macho_to_arm64() {
   done < <(find "$root" -type f -print0)
 }
 
+is_macho() {
+  local file="$1"
+  file "$file" | grep -q "Mach-O"
+}
+
+loader_relative_reference() {
+  local from_file="$1"
+  local to_file="$2"
+  "$HOST_PYTHON" - "$from_file" "$to_file" <<'PY'
+from pathlib import Path
+import os
+import sys
+
+from_file = Path(sys.argv[1]).resolve()
+to_file = Path(sys.argv[2]).resolve()
+print("@loader_path/" + os.path.relpath(to_file, from_file.parent))
+PY
+}
+
+rewrite_python_framework_reference() {
+  local file="$1"
+  local original_dependency="$2"
+
+  if [[ "$original_dependency" != "$PYTHON_FRAMEWORK_VERSION_SRC"* ]]; then
+    return
+  fi
+
+  local suffix="${original_dependency#$PYTHON_FRAMEWORK_VERSION_SRC/}"
+  local bundled_dependency="$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION/$suffix"
+
+  if [[ ! -e "$bundled_dependency" ]]; then
+    echo "error: Bundled Python dependency target is missing for $original_dependency"
+    echo "       Expected: $bundled_dependency"
+    exit 1
+  fi
+
+  local replacement
+  replacement="$(loader_relative_reference "$file" "$bundled_dependency")"
+  install_name_tool -change "$original_dependency" "$replacement" "$file" 2>/dev/null || true
+}
+
+rewrite_macho_runtime_links() {
+  local file="$1"
+  if ! is_macho "$file"; then
+    return
+  fi
+
+  if [[ "$file" == "$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION/Python" ]]; then
+    install_name_tool -id "@rpath/Python.framework/Versions/$PYTHON_VERSION/Python" "$file"
+  elif [[ "$file" == "$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION/lib/"*.dylib ]]; then
+    install_name_tool -id "@loader_path/$(basename "$file")" "$file" 2>/dev/null || true
+  fi
+
+  while IFS= read -r dependency; do
+    rewrite_python_framework_reference "$file" "$dependency"
+  done < <(otool -L "$file" 2>/dev/null | awk 'NR > 1 { print $1 }')
+}
+
+validate_no_external_runtime_links() {
+  local root="$1"
+  local has_invalid=0
+  if [[ ! -d "$root" ]]; then
+    return
+  fi
+
+  while IFS= read -r -d '' file; do
+    if ! is_macho "$file"; then
+      continue
+    fi
+
+    while IFS= read -r dependency; do
+      case "$dependency" in
+        /Library/Frameworks/*|/opt/homebrew/*|/usr/local/*|/opt/local/*)
+          echo "error: Bundled runtime has a non-portable dependency:"
+          echo "       $file"
+          echo "       -> $dependency"
+          has_invalid=1
+          ;;
+      esac
+    done < <(otool -L "$file" 2>/dev/null | awk 'NR > 1 { print $1 }')
+  done < <(find "$root" -type f -print0)
+
+  if [[ "$has_invalid" != "0" ]]; then
+    exit 1
+  fi
+}
+
 if [[ ! -f "$ENGINE_SRC/clarity_engine/main.py" ]]; then
   echo "error: Could not find Clarity Python engine at $ENGINE_SRC."
   exit 1
@@ -189,17 +276,6 @@ if [[ ! -f "$PYTHON_STAMP" ]]; then
   ln -sfn "Versions/Current/Python" "$PYTHON_FRAMEWORK_DST/Python"
   ln -sfn "Versions/Current/Resources" "$PYTHON_FRAMEWORK_DST/Resources"
 
-  install_name_tool -id "@rpath/Python.framework/Versions/$PYTHON_VERSION/Python" \
-    "$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION/Python"
-
-  while IFS= read -r -d '' executable; do
-    if file "$executable" | grep -q "Mach-O"; then
-      install_name_tool -change "$PYTHON_FRAMEWORK_VERSION_SRC/Python" \
-        "@executable_path/../Python" \
-        "$executable" || true
-    fi
-  done < <(find "$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION/bin" -type f -print0)
-
   touch "$PYTHON_STAMP"
 fi
 
@@ -260,20 +336,12 @@ prune_non_runtime_artifacts "$PACKAGES_DST"
 thin_macho_to_arm64 "$PACKAGES_DST"
 remove_broken_symlinks "$PACKAGES_DST"
 
-rewrite_dependency() {
-  local file="$1"
-  if ! file "$file" | grep -q "Mach-O"; then
-    return
-  fi
-
-  install_name_tool -change "$PYTHON_FRAMEWORK_VERSION_SRC/Python" \
-    "@rpath/Python.framework/Versions/$PYTHON_VERSION/Python" \
-    "$file" 2>/dev/null || true
-}
-
 while IFS= read -r -d '' file; do
-  rewrite_dependency "$file"
-done < <(find "$PACKAGES_DST" "$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION/lib/python$PYTHON_VERSION/lib-dynload" -type f -print0)
+  rewrite_macho_runtime_links "$file"
+done < <(find "$PYTHON_FRAMEWORK_DST" "$PACKAGES_DST" -type f -print0)
+
+validate_no_external_runtime_links "$PYTHON_FRAMEWORK_DST"
+validate_no_external_runtime_links "$PACKAGES_DST"
 
 SIGNING_IDENTITY=""
 if [[ "${CODE_SIGNING_ALLOWED:-YES}" != "NO" && -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" && "${EXPANDED_CODE_SIGN_IDENTITY:-}" != "-" ]]; then

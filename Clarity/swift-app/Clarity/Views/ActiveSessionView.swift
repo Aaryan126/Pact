@@ -11,9 +11,9 @@ struct ActiveSessionView: View {
             VStack(spacing: 42) {
                 HStack(spacing: 12) {
                     Circle()
-                        .fill(Color.red)
+                        .fill(model.isClassificationFallbackActive ? HomeTheme.primaryBlue : Color.red)
                         .frame(width: 14, height: 14)
-                    Text("Camera on. Processing locally. No recording.")
+                    Text(model.isClassificationFallbackActive ? "Session active. No recording." : "Camera on. Processing locally. No recording.")
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(HomeTheme.secondaryText)
                 }

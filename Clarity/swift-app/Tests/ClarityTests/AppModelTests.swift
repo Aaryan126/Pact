@@ -316,7 +316,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(engine.didStop)
     }
 
-    func testEngineErrorAbortsWithoutSavingCompletedSession() async throws {
+    func testEngineErrorContinuesSessionWithoutClassification() async throws {
         let engine = MockEngine()
         let store = MockSessionStore()
         let model = AppModel(store: store, engine: engine, completionNotifier: MockCompletionNotifier())
@@ -331,16 +331,22 @@ final class AppModelTests: XCTestCase {
         )
         try await Task.sleep(nanoseconds: 10_000_000)
 
-        XCTAssertFalse(model.isSessionActive)
+        XCTAssertTrue(model.isSessionActive)
+        XCTAssertTrue(model.isClassificationFallbackActive)
         XCTAssertNil(model.latestCompletedSession)
         XCTAssertTrue(store.savedSessions.isEmpty)
-        XCTAssertEqual(
-            model.engineError,
-            "Clarity could not access the camera. Make sure camera access is on and no other app is using the camera, then try again."
-        )
+        XCTAssertNil(model.engineError)
+
+        try await Task.sleep(nanoseconds: 10_000_000)
+        model.endSession()
+
+        let session = try XCTUnwrap(model.latestCompletedSession)
+        XCTAssertEqual(store.savedSessions.count, 1)
+        XCTAssertEqual(session.segments.count, 1)
+        XCTAssertEqual(session.segments.first?.state, .uncertain)
     }
 
-    func testUnexpectedEngineTerminationUsesUserFacingMessage() async throws {
+    func testUnexpectedEngineTerminationContinuesSessionWithoutClassification() async throws {
         let engine = MockEngine()
         let store = MockSessionStore()
         let model = AppModel(store: store, engine: engine, completionNotifier: MockCompletionNotifier())
@@ -350,15 +356,35 @@ final class AppModelTests: XCTestCase {
         engine.onTermination?(EngineProcessTermination(status: 5, reason: "terminated"))
         try await Task.sleep(nanoseconds: 10_000_000)
 
-        XCTAssertFalse(model.isSessionActive)
+        XCTAssertTrue(model.isSessionActive)
+        XCTAssertTrue(model.isClassificationFallbackActive)
         XCTAssertNil(model.latestCompletedSession)
         XCTAssertTrue(store.savedSessions.isEmpty)
-        XCTAssertEqual(
-            model.engineError,
-            "Clarity stopped this session because local focus processing was interrupted. Restart the session when your camera is available."
-        )
-        XCTAssertFalse(model.engineError?.contains("status") == true)
-        XCTAssertFalse(model.engineError?.contains("terminated") == true)
+        XCTAssertNil(model.engineError)
+    }
+
+    func testEngineStartFailureContinuesSessionWithoutClassification() async throws {
+        let engine = MockEngine()
+        engine.startError = EngineProcessError.pythonRuntimeNotFound
+        let store = MockSessionStore()
+        let model = AppModel(store: store, engine: engine, completionNotifier: MockCompletionNotifier())
+        model.selectedLength = .openEnded
+
+        model.startSession()
+        try await Task.sleep(nanoseconds: 10_000_000)
+
+        XCTAssertTrue(model.isSessionActive)
+        XCTAssertTrue(model.isClassificationFallbackActive)
+        XCTAssertNil(model.engineError)
+        XCTAssertFalse(engine.didStart)
+
+        try await Task.sleep(nanoseconds: 10_000_000)
+        model.endSession()
+
+        let session = try XCTUnwrap(model.latestCompletedSession)
+        XCTAssertEqual(store.savedSessions.count, 1)
+        XCTAssertEqual(session.segments.count, 1)
+        XCTAssertEqual(session.segments.first?.state, .uncertain)
     }
 }
 
@@ -422,8 +448,12 @@ private final class MockEngine: EngineProcessControlling {
     var onTermination: ((EngineProcessTermination) -> Void)?
     var didStart = false
     var didStop = false
+    var startError: Error?
 
     func start(fps: Int) throws {
+        if let startError {
+            throw startError
+        }
         didStart = true
     }
 
