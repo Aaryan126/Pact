@@ -85,7 +85,7 @@ struct OnboardingView: View {
         case .authorized:
             return "Continue"
         case .notDetermined:
-            return "Allow Camera Access"
+            return "Continue"
         case .denied, .restricted:
             return "Open Camera Settings"
         }

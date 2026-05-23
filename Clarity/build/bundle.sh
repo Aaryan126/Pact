@@ -22,6 +22,40 @@ export CLANG_MODULE_CACHE_PATH="$ROOT/build/module-cache"
 rm -rf "$CLANG_MODULE_CACHE_PATH" "$SWIFTPM_SCRATCH"
 mkdir -p "$HOME" "$CLANG_MODULE_CACHE_PATH"
 
+remove_itms_services_from_stdlib() {
+  local stdlib_root="$1"
+  local parse_module="$stdlib_root/urllib/parse.py"
+  if [[ ! -f "$parse_module" ]]; then
+    return
+  fi
+
+  python3 - "$parse_module" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+patched = re.sub(r",\s*'itms-services'", "", text)
+if patched != text:
+    path.write_text(patched)
+PY
+}
+
+sanitize_vendored_python_runtime() {
+  local runtime_root="$1"
+
+  rm -rf \
+    "$runtime_root/share" \
+    "$runtime_root/etc/jupyter"
+
+  while IFS= read -r site_packages; do
+    local stdlib_root
+    stdlib_root="$(cd "$site_packages/.." && pwd)"
+    remove_itms_services_from_stdlib "$stdlib_root"
+  done < <("$runtime_root/bin/python3" -c 'import site; print("\n".join(site.getsitepackages()))')
+}
+
 rm -rf "$APP"
 mkdir -p "$MACOS" "$RESOURCES" "$FRAMEWORKS"
 
@@ -62,6 +96,7 @@ if [[ "$VENDOR_PYTHON" == "1" ]]; then
   find "$PYTHON_RUNTIME" -name "__pycache__" -type d -prune -exec rm -rf {} +
   find "$PYTHON_RUNTIME" -name "tests" -type d -prune -exec rm -rf {} +
   find "$PYTHON_RUNTIME" -name "*.pyc" -type f -delete
+  sanitize_vendored_python_runtime "$PYTHON_RUNTIME"
   while IFS= read -r -d '' file; do
     if ! file "$file" | grep -q "Mach-O"; then
       chmod a-x "$file"

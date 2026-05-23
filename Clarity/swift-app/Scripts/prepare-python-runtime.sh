@@ -103,6 +103,38 @@ validate_symlinks() {
   fi
 }
 
+remove_itms_services_from_stdlib() {
+  local stdlib_root="$1"
+  local parse_module="$stdlib_root/urllib/parse.py"
+  if [[ ! -f "$parse_module" ]]; then
+    return
+  fi
+
+  "$HOST_PYTHON" - "$parse_module" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+patched = re.sub(r",\s*'itms-services'", "", text)
+if patched != text:
+    path.write_text(patched)
+PY
+}
+
+sanitize_embedded_python_framework() {
+  local version_root="$1"
+  local stdlib_root="$version_root/lib/python$PYTHON_VERSION"
+
+  rm -rf \
+    "$version_root/Resources/Python.app" \
+    "$version_root/Resources/English.lproj/Documentation" \
+    "$version_root/etc/jupyter"
+
+  remove_itms_services_from_stdlib "$stdlib_root"
+}
+
 thin_macho_to_arm64() {
   local root="$1"
   if [[ ! -d "$root" ]]; then
@@ -296,6 +328,7 @@ rm -rf \
   "$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION/lib/python$PYTHON_VERSION/tkinter" \
   "$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION/lib/python$PYTHON_VERSION/turtledemo" \
   "$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION/share"
+sanitize_embedded_python_framework "$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION"
 find "$PYTHON_FRAMEWORK_DST/Versions/$PYTHON_VERSION/lib/python$PYTHON_VERSION/lib-dynload" \
   -name "_tkinter.*" -type f -delete
 remove_broken_symlinks "$PYTHON_FRAMEWORK_DST"
